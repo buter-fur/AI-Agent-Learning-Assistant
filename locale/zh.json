@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "学习小助手",
+    "description": "在 DSH 里旁听开发过程：遇到没学过或卡住的知识点时出现知识卡；启用前的旧会话也会补成历史卡片。",
+    "detail": "docs/DETAIL.md"
+  }
+}

@@ -1,0 +1,53 @@
+{
+  "name": "dsh-plugin-learning-assistant",
+  "version": "0.3.3",
+  "private": false,
+  "description": "学习小助手 · 在 DSH 里旁听开发过程，并把启用前的旧会话补成知识卡",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "default": "./index.js"
+    },
+    "./client": {
+      "default": "./client.js"
+    },
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout"
+      ]
+    }
+  },
+  "keywords": [
+    "deepseek",
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "plugin",
+    "learning",
+    "knowledge"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buter-fur/dsh-plugin-learning-assistant.git"
+  }
+}

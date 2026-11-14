@@ -1,0 +1,13 @@
+# 学习小助手插件壳：一行 Host 占位 + 浏览器浮层。
+# 浏览器半边由 package.json 的 dsh.client 自动发现。
+# Host 启动时会自动拉起卡片站（4780）和知识库（8790）；可选拉起 Ollama。
+- insert:
+    - id: learning-assistant
+      name: dsh-plugin-learning-assistant
+      config:
+        baseURL: http://127.0.0.1:4780
+        # 学习小助手不在插件隔壁时改这里（相对插件目录或绝对路径）：
+        # appDir: ../学习小助手/app
+        # kbDir: ~/rag
+        # autoStartOllama: true
+        # ollamaBin: /opt/homebrew/bin/ollama

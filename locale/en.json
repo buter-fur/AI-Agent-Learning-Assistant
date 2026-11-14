@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Learning assistant",
+    "description": "Listens to your DSH session, offers a knowledge card when you get stuck, and backfills older conversations into history cards.",
+    "detail": "docs/DETAIL.md"
+  }
+}
