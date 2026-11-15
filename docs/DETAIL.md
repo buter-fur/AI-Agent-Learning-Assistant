@@ -20,11 +20,11 @@
 
 插件会随 DSH 自动拉起：
 
-- 卡片站 `学习小助手/app/src/serve.mjs`（4780）
+- 卡片站 `app/src/serve.mjs`（4780）
 - 知识库 `~/rag/kb_server.py`（8790）
 - 本地 `ollama serve`（仅当 `localJudge.enabled` 且配置了可执行文件；模型按需加载；没填 API 时也负责历史补课）
 
-启动日志在 `学习小助手/app/data/auto-start.log`。插件停用/卸载时只停自己拉起的进程，原本手动开着的服务不受影响。**不要同时跑 watch.mjs**，否则同一信号会送两遍。
+启动日志在 `app/data/auto-start.log`。插件停用/卸载时只停自己拉起的进程，原本手动开着的服务不受影响。**不要同时跑 watch.mjs**，否则同一信号会送两遍。
 
 历史补卡的模型顺序由设置页决定：API / 本地 Ollama / DSH 三档各用一次，用户自己排优先级；前面的不可用才往后走。API、优先级、回溯范围都在 **插件 → 学习小助手 → 配置**，不用改文件。
 
@@ -49,7 +49,7 @@
 - id: learning-assistant
   config:
     baseURL: http://127.0.0.1:4780
-    appDir: ../学习小助手/app
+    appDir: ./app
     kbDir: ~/rag
     autoStartOllama: true
     ollamaBin: /opt/homebrew/bin/ollama

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>旁听 · 实时</title>
+<style>
+  :root{
+    --paper:#f7f4ee; --paper-2:#efeae0; --card:#fffdf9;
+    --ink:#1b1a17; --ink-2:#54504a; --ink-3:#8b867d;
+    --line:#e3ddd1; --line-2:#d3ccbe; --accent:#b4432e; --accent-soft:#f6e8e3;
+    --serif:"Songti SC","STSong",Georgia,serif;
+    --sans:"PingFang SC","Hiragino Sans GB",system-ui,sans-serif;
+    --shadow:0 24px 60px -32px rgba(60,40,15,.55), 0 2px 6px rgba(60,40,15,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:transparent;font-family:var(--sans);color:var(--ink);min-height:100vh}
+  .stage{max-width:560px;margin:0 auto;padding:18px;display:flex;flex-direction:column;gap:10px}
+  .hint{font-size:12px;color:var(--ink-3);line-height:1.7}
+  .hint b{color:var(--ink-2);font-weight:500}
+  .bar{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-3)}
+  .bar select{border:1px solid var(--line-2);background:#fff;border-radius:7px;padding:3px 8px;font-size:12px;color:var(--ink-2)}
+  .bar button{font-size:12px;padding:4px 10px}
+  .queuebox{background:var(--card);border:1px solid var(--line-2);border-radius:12px;box-shadow:var(--shadow);padding:8px;display:flex;flex-direction:column;gap:6px}
+  .qitem{display:flex;justify-content:space-between;gap:8px;align-items:center;background:var(--paper-2);border-radius:8px;padding:7px 10px;font-size:12px;cursor:pointer}
+  .qitem b{font-weight:500;color:var(--ink)}
+  .qitem span{color:var(--ink-3);font-size:11px}
+  .bubble{display:none;background:var(--card);border:1px solid var(--line-2);border-left:3px solid var(--accent);
+    border-radius:4px 12px 12px 4px;box-shadow:var(--shadow);padding:14px 16px;cursor:pointer}
+  .bubble .tag{font-size:10.5px;letter-spacing:.16em;color:var(--accent);margin-bottom:6px;display:flex;justify-content:space-between}
+  .bubble .tag em{font-style:normal;color:var(--ink-3);letter-spacing:.04em}
+  .bubble .btitle{margin:0;font-family:var(--serif);font-size:16.5px;line-height:1.55}
+  .bubble .bscene{margin:6px 0 0;font-size:12px;color:var(--ink-3);line-height:1.7}
+  .acts{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  button{font-family:var(--sans);font-size:12px;border-radius:7px;padding:6px 12px;cursor:pointer;
+    border:1px solid var(--line-2);background:#fff;color:var(--ink-2)}
+  button.primary{background:var(--ink);border-color:var(--ink);color:#fdfaf4}
+  button:disabled{opacity:.45;cursor:default}
+  .card{display:none;background:var(--card);border:1px solid var(--line-2);border-radius:14px;box-shadow:var(--shadow);overflow:hidden}
+  .card .head{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .card .tag{font-size:10.5px;letter-spacing:.16em;color:var(--accent);display:flex;justify-content:space-between}
+  .card h3{font-family:var(--serif);font-size:20px;margin:8px 0 6px}
+  .card .scene{margin:0;font-size:12.5px;color:var(--ink-2);line-height:1.7}
+  .card .body{padding:14px 18px 16px;font-size:13px;color:var(--ink-2);line-height:1.85;max-height:52vh;overflow:auto}
+  .card .body b{color:var(--ink)}
+  .lead{font-family:var(--serif);font-size:15px;color:var(--ink);margin:0 0 8px}
+  .applied{background:#f4f8f4;border-left:3px solid #3d6b52;border-radius:0 8px 8px 0;padding:10px 12px;margin:12px 0 4px;font-size:12.5px}
+  .applied .cap{font-size:10.5px;letter-spacing:.14em;color:#3d6b52;margin-bottom:4px}
+  .applied button{margin-top:6px}
+  .examples{margin:10px 0 0}
+  .ex{background:var(--paper-2);border-radius:8px;padding:9px 12px;font-size:12.5px;margin:6px 0}
+  .ex .lv{font-size:10px;color:var(--accent);letter-spacing:.12em;margin-right:6px}
+  .opts{display:flex;flex-direction:column;gap:7px;margin:10px 0}
+  .opts button{text-align:left}
+  .opts button.picked{background:var(--accent-soft);border-color:var(--accent)}
+  .feedback{font-size:12.5px;color:var(--ink-2);margin:6px 0}
+  .feedback.ok{color:#3d6b52}
+  .feedback.bad{color:var(--accent)}
+  .flow{position:relative;padding-left:6px;margin:10px 0 4px}
+  .spine{position:absolute;left:18px;top:16px;bottom:18px;width:2px;background:var(--line-2)}
+  .fstep{position:relative;display:grid;grid-template-columns:24px 1fr;gap:12px;margin:0 0 12px}
+  .fdot{width:24px;height:24px;border-radius:50%;background:var(--paper-2);border:1px solid var(--line-2);
+    display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:10.5px;color:var(--accent);z-index:1}
+  .fsname{font-size:13px;font-weight:600;color:var(--ink);padding-top:2px}
+  .fswhat{font-size:12px;color:var(--ink-2);margin-top:2px;line-height:1.65}
+  .fdec{position:relative;margin:8px 0 0;background:var(--ok-soft);border-left:2px solid var(--ok);
+    border-radius:0 6px 6px 0;padding:6px 10px;font-size:11.5px;color:var(--ink-2);line-height:1.7}
+  .fdec::before{content:"";position:absolute;left:-6px;top:50%;width:8px;height:8px;margin-top:-5px;
+    background:var(--card);border:1.5px solid var(--ok);transform:rotate(45deg)}
+  .fdec b{color:var(--ok);font-weight:600}
+  .fdec .alt{color:var(--ink-3)}
+  .wf-steps{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:10px 0 14px}
+  .wf-step{background:#f4f8f4;border:1px solid #d9e6da;border-radius:8px;padding:6px 10px;font-size:12px;color:var(--ink-2)}
+  .wf-step b{color:#3d6b52;margin-right:6px}
+  .wf-step i{font-style:normal;color:var(--ink-3);margin:0 2px}
+  .wf-dec{background:var(--paper-2);border-radius:8px;padding:9px 12px;margin:8px 0;font-size:12.5px}
+  .wf-dec .q{color:var(--ink);font-weight:500}
+  .wf-dec .a{color:#3d6b52;margin-top:3px}
+  .wf-dec .t{color:var(--ink-3);margin-top:2px;font-size:11.5px}
+  .wf-scen{display:flex;flex-wrap:wrap;gap:7px;margin:6px 0 10px}
+  .wf-scen button{text-align:left;font-size:12px}
+  .wf-scen .ex{width:100%}
+  .kbtext{font-size:13px;line-height:1.85;color:var(--ink-2)}
+  .kbtext pre{white-space:pre-wrap;word-break:break-word;background:var(--paper-2);border-radius:8px;padding:10px 12px;font-family:var(--sans);font-size:12.5px;color:var(--ink-2);margin:10px 0 0}
+  .take{background:var(--paper-2);border-radius:8px;padding:10px 12px;font-size:12.5px;color:var(--ink);margin-top:10px}
+  .take::before{content:"所以";color:var(--accent);font-family:var(--serif);margin-right:6px}
+  .terms{margin:10px 0 0;padding:0;list-style:none}
+  .terms li{font-size:12px;color:var(--ink-3);margin:4px 0}
+  .terms b{color:var(--ink-2)}
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 14px;border-top:1px solid var(--line);background:#fdfbf6;flex-wrap:wrap}
+  .foot .links{display:flex;gap:10px;font-size:11.5px;color:var(--ink-3)}
+  .foot .links span{cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:#2b2a27;color:#f3eee3;
+    font-size:12px;padding:8px 14px;border-radius:8px;opacity:0;transition:.2s;pointer-events:none}
+  .toast.show{opacity:1}
+  .empty{margin-top:24px;font-size:12px;color:var(--ink-3);text-align:center;line-height:1.8;display:none}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="hint">
+    <b>旁听 · 实时</b>　这个窗口一直开着，等本地服务推卡片过来。<br>
+    第一次遇到新概念：<b>先讲清楚，不给题</b>；没懂可以要更进阶的例子。
+  </div>
+
+  <div class="bar">
+    <span>通知</span>
+    <select id="mode">
+      <option value="极简">极简</option>
+      <option value="精简" selected>精简</option>
+      <option value="完全">完全</option>
+    </select>
+    <button id="queueBtn">待看 0</button>
+    <button id="pathBtn">下一步</button>
+    <button id="gapsBtn">缺口</button>
+  </div>
+  <div id="queuebox" class="queuebox" style="display:none"></div>
+  <div id="guidebox" class="queuebox" style="display:none"></div>
+
+  <div class="bubble" id="bubble">
+    <div class="tag"><span id="tag">旁听 · 40 秒</span><em id="tier">刚卡住</em></div>
+    <p class="btitle" id="btitle">…</p>
+    <p class="bscene" id="oneline"></p>
+    <div class="acts">
+      <button class="primary" id="open">讲 40 秒</button>
+      <button id="dismiss">先不用</button>
+    </div>
+  </div>
+
+  <div class="card" id="card">
+    <div class="head">
+      <div class="tag"><span id="ctag">卡片</span><em id="cscore"></em></div>
+      <h3 id="ctitle"></h3>
+      <p class="scene" id="cscene"></p>
+    </div>
+    <div class="body" id="cbody">
+      <p class="lead" id="clead"></p>
+      <p id="cmetaphor"></p>
+      <p id="cexplain"></p>
+      <div class="applied">
+        <div class="cap">你项目里的实际应用</div>
+        <div id="capplied"></div>
+        <button id="jump">跳回这段对话</button>
+      </div>
+      <div id="cworkflow" style="display:none"></div>
+      <div id="kbtext" style="display:none"></div>
+      <div class="examples" id="cexamples"></div>
+      <ul class="terms" id="cterms"></ul>
+      <div class="take" id="ctake"></div>
+      <div id="quizbox" style="display:none">
+        <p style="margin:12px 0 0"><b id="cq"></b></p>
+        <div class="opts" id="copts"></div>
+        <p class="feedback" id="cfb"></p>
+      </div>
+    </div>
+    <div class="foot">
+      <div class="links"><span id="guideNext">顺藤摸瓜</span><span id="locate">定位返回</span><span id="save">存进札记</span></div>
+      <div class="acts" style="margin:0">
+        <button id="again">再举个例</button>
+        <button id="advanced">太浅了</button>
+        <button id="known">这个我会</button>
+        <button class="primary" id="got">看懂了</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty" id="empty">还没有信号。<br>去 Harness 里干点活，卡住的时候它会自己出现。</div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function () {
+  var pending = null, expanded = false;
+  var el = function (id) { return document.getElementById(id); };
+  function say(t) { var n = el('toast'); n.textContent = t; n.classList.add('show'); setTimeout(function () { n.classList.remove('show'); }, 1600); }
+
+  function renderExamples(list) {
+    el('cexamples').innerHTML = (list || []).map(function (e) {
+      return '<div class="ex"><span class="lv">' + (e.level ? '进阶' : '例子') + '</span>' + e.text + '</div>';
+    }).join('');
+  }
+
+  function renderQuiz(c) {
+    var items = (c.quiz || []).slice(0, 3);
+    var order = { recall: 0, contrast: 1, trace: 2, apply: 3 };
+    items.sort(function (a, b) { return (order[a.kind] || 0) - (order[b.kind] || 0); });
+    var idx = 0, right = 0;
+    var box = el('quizbox');
+    box.innerHTML = '<div class="qhead" style="font-size:11px;letter-spacing:.14em;color:var(--ink-3);margin-top:12px">三题梯度 · 识别 → 因果 → 应用</div>' +
+      '<p style="margin:6px 0 0"><b id="cq"></b></p><div class="opts" id="copts"></div><p class="feedback" id="cfb"></p>';
+    function step() {
+      if (idx >= items.length) {
+        box.innerHTML = '<p class="feedback ok" style="margin-top:12px">这轮答对 ' + right + '/' + items.length + '。' + (right >= 2 ? '可以往下走了。' : '再看一遍这张卡，然后让我换个说法。') + '</p>';
+        ['clead', 'cmetaphor', 'cexplain'].forEach(function (id) { el(id).style.display = 'block'; });
+        el('capplied').parentNode.style.display = 'block';
+        el('cterms').style.display = 'block';
+        el('ctake').style.display = 'block';
+        return;
+      }
+      var it = items[idx];
+      el('cq').textContent = (idx + 1) + '/' + items.length + '　' + it.q;
+      el('copts').innerHTML = '';
+      el('cfb').textContent = '';
+      el('cfb').className = 'feedback';
+      (it.options || []).forEach(function (opt, i) {
+        var b = document.createElement('button');
+        b.textContent = opt;
+        b.addEventListener('click', function () {
+          if (b.disabled) return;
+          [].forEach.call(el('copts').children, function (x) { x.disabled = true; x.classList.remove('picked'); });
+          b.classList.add('picked');
+          fetch('/api/quiz', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ cardId: c.id, quizIndex: idx, picked: i }) })
+            .catch(function () {});
+          var ok = i === it.answerIndex;
+          if (ok) right += 1;
+          el('cfb').textContent = (ok ? '对。' : '不是这个。') + (it.explain || '');
+          el('cfb').className = 'feedback ' + (ok ? 'ok' : 'bad');
+          idx += 1;
+          setTimeout(step, 900);
+        });
+        el('copts').appendChild(b);
+      });
+    }
+    step();
+  }
+
+  function renderWorkflow(c) {
+    var wf = c.workflow || {};
+    var steps = (wf.steps || []).map(function (s, i) {
+      var d = (wf.decisions || [])[i];
+      var dec = d ? '<div class="fdec"><b>' + d.q + '</b>　拿这条：<b>' + d.choice + '</b><br><span class="alt">代价：' + d.tradeoff + '</span></div>' : '';
+      return '<div class="fstep"><div class="fdot">' + (i + 1) + '</div><div>' +
+        '<div class="fsname">' + s.name + '</div><div class="fswhat">' + s.what + '</div>' + dec + '</div></div>';
+    }).join('');
+    var scens = (wf.scenarios || []).map(function (s, i) {
+      var ex = s.example ? '<div class="ex"><span class="lv">例子</span>' + s.example.text + '</div>' : '';
+      return '<button data-scen="' + i + '">' + s.name + '　<span style="color:var(--ink-3)">' + s.desc + '</span></button>' + ex;
+    }).join('');
+    var box = el('cworkflow');
+    box.innerHTML = '<div style="font-size:11px;letter-spacing:.14em;color:var(--ink-3)">流程</div>' +
+      '<div class="flow"><div class="spine"></div>' + steps + '</div>' +
+      '<div style="font-size:11px;letter-spacing:.14em;color:var(--ink-3);margin-top:10px">常用场景（点一个，给你举这个场景的例子）</div>' +
+      '<div class="wf-scen">' + scens + '</div>';
+    [].forEach.call(box.querySelectorAll('[data-scen]'), function (btn) {
+      btn.addEventListener('click', function () {
+        var idx = Number(btn.getAttribute('data-scen'));
+        if (!pending) return;
+        btn.disabled = true;
+        say('正在生成这个场景的例子…');
+        post('/api/card/scenario', { cardId: pending.card.id, index: idx }).then(function (r) {
+          btn.disabled = false;
+          if (r.ok) {
+            pending.card.workflow.scenarios[idx].example = r.example;
+            render(pending);
+            say('例子来了（今天还剩 ' + r.remaining + ' 次）');
+          } else say(r.error || '这次没生成出来');
+        }).catch(function () { btn.disabled = false; say('这次没生成出来'); });
+      });
+    });
+  }
+
+  function render(item) {
+    if (!item) { el('bubble').style.display = 'none'; el('card').style.display = 'none'; el('empty').style.display = 'block'; return; }
+    el('empty').style.display = 'none';
+    var c = item.card, teach = (c.stage || 'unknown') === 'unknown';
+    el('btitle').textContent = c.title;
+    el('oneline').textContent = (c.scene || '').slice(0, 64);
+    el('tier').textContent = teach ? '新概念' : '复习';
+    el('ctag').textContent = (item.concept && item.concept.name ? item.concept.name : '卡片') + ' · ' + (c.lane || '');
+    var RUNG = ['认得','看懂','讲清','判断','迁移'];
+    var rung = (typeof c.rung === 'number') ? Math.max(0, Math.min(4, c.rung)) : 0;
+    el('cscore').textContent = (item.score ? item.score.toFixed(2) + ' · ' : '') + 'G' + rung + ' · ' + RUNG[rung];
+    el('ctitle').textContent = c.title;
+    el('cscene').textContent = c.scene || '';
+    el('clead').textContent = c.answer || c.title;
+    el('cmetaphor').textContent = c.metaphor || '';
+    el('cexplain').textContent = c.explain || '';
+    var isKb = c.shape === 'kb';
+    if (isKb) el('ctag').textContent = '知识库 · 检索命中';
+    el('kbtext').style.display = isKb ? 'block' : 'none';
+    var isWf = c.shape === 'workflow' && c.workflow;
+    el('cworkflow').style.display = isWf ? 'block' : 'none';
+    el('cmetaphor').style.display = isWf ? 'none' : 'block';
+    el('cexplain').style.display = isWf ? 'none' : 'block';
+    el('capplied').parentNode.style.display = isWf ? 'none' : 'block';
+    el('again').style.display = isWf ? 'none' : 'inline-block';
+    el('advanced').style.display = isWf ? 'none' : 'inline-block';
+    if (isKb) {
+      ['clead','cmetaphor','cexplain','cterms','ctake'].forEach(function (id) { el(id).style.display = 'none'; });
+      el('capplied').parentNode.style.display = 'none';
+      el('cexamples').innerHTML = '';
+      el('quizbox').style.display = 'none';
+      el('cterms').innerHTML = '';
+      el('kbtext').innerHTML = '<p style="margin:0 0 6px;font-family:var(--serif);font-size:16px;color:var(--ink)">' + (c.summary || '') + '</p>' +
+        '<button id="kbopen" style="margin-top:10px">看全文</button><pre id="kbdoc" style="display:none"></pre>';
+      el('kbopen').addEventListener('click', function () {
+        fetch('/api/kb/item?id=' + encodeURIComponent(c.kbId || c.id)).then(function (r) { return r.json(); }).then(function (d) {
+          if (!d.ok) { say('没取到全文'); return; }
+          el('kbdoc').textContent = (d.document || '') + '\n\n来源：' + ((d.meta && d.meta.source) || '');
+          el('kbdoc').style.display = 'block';
+          el('kbopen').style.display = 'none';
+        }).catch(function () { say('知识库没响应'); });
+      });
+      el('again').style.display = el('advanced').style.display = el('known').style.display = 'none';
+      el('got').style.display = 'none';
+    } else if (isWf) { renderWorkflow(c); el('clead').style.display = 'none'; el('cexamples').innerHTML = ''; el('cterms').innerHTML = ''; }
+    else {
+      el('again').style.display = el('advanced').style.display = el('known').style.display = 'inline-block';
+      el('got').style.display = 'inline-block';
+      el('clead').style.display = 'block';
+      var q = (c.source && c.source.quotes || [])[0];
+      el('capplied').textContent = q ? '当时现场：' + q.text.slice(0, 70) : (c.scene || '');
+      renderExamples(c.examples);
+    }
+    if (!isKb) {
+    el('cterms').innerHTML = (c.terms || []).map(function (t) { return '<li><b>' + t.term + '</b>　' + t.plain + '</li>'; }).join('');
+    el('ctake').textContent = c.takeaway || '';
+
+    el('quizbox').style.display = teach ? 'none' : 'block';
+    if (!teach) {
+      ['clead', 'cmetaphor', 'cexplain'].forEach(function (id) { el(id).style.display = 'none'; });
+      el('capplied').parentNode.style.display = 'none';
+      el('cterms').style.display = 'none';
+      el('ctake').style.display = 'none';
+      renderQuiz(c);
+    } else {
+      el('quizbox').innerHTML = '';
+      el('cterms').style.display = 'block';
+      el('ctake').style.display = 'block';
+    }
+    }
+    el('bubble').style.display = expanded ? 'none' : 'block';
+    el('card').style.display = expanded ? 'block' : 'none';
+  }
+
+  async function post(url, body) {
+    var res = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    return res.json();
+  }
+
+  function ack(action) {
+    if (!pending) return;
+    post('/api/whisper/ack', { id: pending.id, action: action }).catch(function () {});
+    pending = null; expanded = false; render(null);
+  }
+
+  el('open').addEventListener('click', function (e) { e.stopPropagation(); expanded = true; render(pending); });
+  el('dismiss').addEventListener('click', function (e) { e.stopPropagation(); ack('too-easy'); });
+  el('bubble').addEventListener('click', function () { expanded = true; render(pending); });
+  el('save').addEventListener('click', function () { say('已存进札记'); });
+  el('jump').addEventListener('click', function () {
+    var s = pending && pending.card.source;
+    say(s ? '跳到 ' + s.project + ' · ' + String(s.session || '').slice(0, 14) : '暂无锚点');
+  });
+  el('got').addEventListener('click', async function () {
+    if (!pending) return;
+    var r = await post('/api/card/learn', { cardId: pending.card.id });
+    say(r.ok ? '已记下：讲过一遍（掌握度 ' + r.mastery.toFixed(2) + '）' : '没记上');
+    ack('got');
+  });
+  el('known').addEventListener('click', async function () {
+    if (!pending) return;
+    var r = await post('/api/card/known', { cardId: pending.card.id });
+    say(r.ok ? '标为已会（可被后面的题回退）' : '没记上');
+    ack('got');
+  });
+  async function genExample(kind) {
+    if (!pending) return;
+    el('again').disabled = el('advanced').disabled = true;
+    say('正在生成例子…');
+    try {
+      var r = await post('/api/card/example', { cardId: pending.card.id, kind: kind });
+      if (r.ok) {
+        pending.card.examples = (pending.card.examples || []).concat([r.example]);
+        renderExamples(pending.card.examples);
+        say('例子来了（今天还剩 ' + r.remaining + ' 次）');
+      } else { say(r.error || '这次没生成出来'); }
+    } catch (e) { say('这次没生成出来'); }
+    el('again').disabled = el('advanced').disabled = false;
+  }
+  el('again').addEventListener('click', function () { genExample('again'); });
+  el('advanced').addEventListener('click', function () { genExample('advanced'); });
+
+  var queueItems = [];
+  async function loadSettings() {
+    try {
+      var r = await fetch('/api/settings').then(function (x) { return x.json(); });
+      if (r.notifyMode) el('mode').value = r.notifyMode;
+    } catch (e) {}
+  }
+  async function loadQueue() {
+    try {
+      var r = await fetch('/api/whisper/queue').then(function (x) { return x.json(); });
+      queueItems = r.items || [];
+      el('queueBtn').textContent = '待看 ' + queueItems.length;
+      if (!queueItems.length) { el('queuebox').style.display = 'none'; return; }
+      el('queuebox').innerHTML = queueItems.map(function (q) {
+        return '<div class="qitem" data-q="' + q.id + '"><b>' + q.title + '</b><span>' + (q.score || 0).toFixed(2) + '</span></div>';
+      }).join('');
+      [].forEach.call(el('queuebox').querySelectorAll('[data-q]'), function (node) {
+        node.addEventListener('click', async function () {
+          await fetch('/api/whisper/next', { method: 'POST' });
+          await poll();
+          loadQueue();
+          say('从待看里取一条');
+        });
+      });
+    } catch (e) {}
+  }
+  el('queueBtn').addEventListener('click', function () {
+    el('queuebox').style.display = el('queuebox').style.display === 'none' ? 'flex' : 'none';
+  });
+  el('mode').addEventListener('change', async function () {
+    try {
+      await fetch('/api/settings', { method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ notifyMode: el('mode').value }) });
+      say('通知模式：' + el('mode').value);
+    } catch (e) { say('没改成'); }
+  });
+
+  el('locate').addEventListener('click', async function () {
+    if (!pending) return;
+    var src = pending.card.source, loc = '';
+    if (typeof src === 'string') loc = src;
+    else if (src) loc = [src.project, src.session && ('session=' + src.session), src.seq && ('seq=' + src.seq)].filter(Boolean).join(' · ');
+    if (!loc) { say('这条没有定位信息'); return; }
+    try { await navigator.clipboard.writeText(loc); say('已复制定位：' + loc.slice(0, 42)); }
+    catch (e) { say(loc.slice(0, 60)); }
+  });
+
+  function showGuide(html) {
+    el('guidebox').innerHTML = html;
+    el('guidebox').style.display = 'flex';
+  }
+  function guideItem(text, sub) {
+    return '<div class="qitem" style="cursor:default"><b>' + text + '</b><span>' + (sub || '') + '</span></div>';
+  }
+  el('guideNext').addEventListener('click', async function () {
+    if (!pending || !pending.card.conceptId) { say('先打开一张概念卡'); return; }
+    try {
+      var r = await fetch('/api/guide/next?conceptId=' + encodeURIComponent(pending.card.conceptId)).then(function (x) { return x.json(); });
+      var g = r.suggestion;
+      if (!g) { say('这条线暂时没有下一步'); return; }
+      var html = '<div class="qitem" style="cursor:default"><b>下一步：' + g.concept.name + '</b><span>' + g.kindLabel + '</span></div>';
+      html += '<div style="font-size:12px;color:var(--ink-3);padding:0 4px">' + (g.reason || '') + (g.via ? '（经过 ' + g.via + '）' : '') + '</div>';
+      if (g.card) {
+        html += '<button id="guideOpen" style="align-self:flex-start">看这张</button>';
+      } else {
+        html += '<div style="font-size:12px;color:var(--ink-3);padding:0 4px">这个知识点还没有卡，先记为缺口。</div>';
+      }
+      showGuide(html);
+      if (g.card) el('guideOpen').addEventListener('click', async function () {
+        var d = await fetch('/api/guide/card?id=' + encodeURIComponent(g.card.id)).then(function (x) { return x.json(); });
+        if (!d.ok) { say('没取到'); return; }
+        expanded = true; render({ card: d.card, tier: 'badge', concept: { name: g.concept.name } });
+        el('guidebox').style.display = 'none';
+      });
+    } catch (e) { say('引导没响应'); }
+  });
+  el('pathBtn').addEventListener('click', async function () {
+    if (!pending || !pending.card.conceptId) { say('先打开一张概念卡'); return; }
+    try {
+      var r = await fetch('/api/guide/path?conceptId=' + encodeURIComponent(pending.card.conceptId)).then(function (x) { return x.json(); });
+      var steps = r.steps || [];
+      if (!steps.length) { say('没有可排的路径'); return; }
+      showGuide(steps.map(function (s) { return guideItem(s.role + '：' + s.concept.name, ''); }).join(''));
+    } catch (e) { say('路径没响应'); }
+  });
+  el('gapsBtn').addEventListener('click', async function () {
+    try {
+      var r = await fetch('/api/guide/gaps').then(function (x) { return x.json(); });
+      var gaps = r.gaps || [];
+      if (!gaps.length) { showGuide(guideItem('暂时没有缺口', '碰过 ≥3 次但还没学的概念会出现在这里')); return; }
+      showGuide(gaps.map(function (g) { return guideItem(g.concept.name, '遇到 ' + g.count + ' 次'); }).join(''));
+    } catch (e) { say('缺口没响应'); }
+  });
+
+  async function poll() {
+    try {
+      var res = await fetch('/api/whisper/pending');
+      var data = await res.json();
+      if (data.item && (!pending || data.item.id !== pending.id)) {
+        pending = data.item; expanded = false; render(pending);
+      } else if (!data.item && pending) {
+        pending = null; expanded = false; render(null);
+      }
+    } catch (e) { /* 等下一轮 */ }
+  }
+
+  render(null); loadSettings(); loadQueue(); poll(); setInterval(poll, 1500); setInterval(loadQueue, 4000);
+})();
+</script>
+</body>
+</html>

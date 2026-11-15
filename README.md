@@ -1,16 +1,24 @@
+> 仓库包含三部分：DSH 插件壳（根目录）、主项目卡片站（`app/`）、知识库与卡片标准（`standards/`、`knowledge-base/`）。主项目不包含个人会话数据、卡片数据库或 API Key。
+
 # dsh-plugin-learning-assistant
 
 把本机「学习小助手」接进 DeepSeek Harness：你在会话里追问「为什么/怎么不对」或工具报出非操作性错误时，插件把信号交给学习小助手；它判断值不值得讲，值得就在 DSH 右下角放一枚书本角标，点开是一张知识卡。启用插件前的旧会话也会被扫一遍，把还没有卡片覆盖的开发片段补成「历史卡片」。
+
+## 主项目与标准
+
+- `app/`：卡片站主项目（Node + SQLite，含卡片流/答题/概念图/知识地图/历史补卡/种子卡）
+- `standards/`：知识库内容、分片、API、标签词表、卡片库分工、四条线、行为判级、价值分、周报等标准
+- `knowledge-base/`：空知识库模板，不含个人会话数据
 
 ## 依赖与启动
 
 插件会随 DSH 自动拉起本机服务，正常使用**不需要手动启动**：
 
-- 卡片站：`学习小助手/app/src/serve.mjs`，默认 `127.0.0.1:4780`
+- 卡片站：`app/src/serve.mjs`（本地开发时也会自动找 `../学习小助手/app`），默认 `127.0.0.1:4780`
 - 知识库：`~/rag/kb_server.py`，默认 `127.0.0.1:8790`
 - 本地 27B（可选，灰区判定；没填 API 时也负责历史补课）：若 `config.localJudge.enabled` 且系统里有 `/opt/homebrew/bin/ollama`，会自动拉起 `ollama serve`；模型按需加载。
 
-插件停用/卸载时会停掉**它自己拉起**的进程；原本已经由你手动开着的服务不会被杀掉。启动日志在 `学习小助手/app/data/auto-start.log`。
+插件停用/卸载时会停掉**它自己拉起**的进程；原本已经由你手动开着的服务不会被杀掉。启动日志在 `app/data/auto-start.log`。
 
 如果学习小助手不在插件隔壁，配置 `appDir` / `kbDir`；不要启动 `watch.mjs`，否则同一信号会送两遍。
 
@@ -53,7 +61,7 @@ DSH → 插件 → 添加插件 → 选择本目录；或者在支持 `plugin_ma
 - id: learning-assistant
   config:
     baseURL: http://127.0.0.1:4780
-    appDir: ../学习小助手/app
+    appDir: ./app
     kbDir: ~/rag
     autoStartOllama: true
     ollamaBin: /opt/homebrew/bin/ollama

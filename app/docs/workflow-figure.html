@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>工作流卡 · 图表方案</title>
+<style>
+  :root{
+    --paper:#f7f4ee; --paper-2:#efeae0; --card:#fffdf9; --ink:#1b1a17; --ink-2:#54504a;
+    --ink-3:#8b867d; --line:#e3ddd1; --line-2:#d3ccbe; --accent:#b4432e; --ok:#3d6b52; --ok-soft:#eef4ef;
+    --serif:"Songti SC","STSong",Georgia,serif; --sans:"PingFang SC","Hiragino Sans GB",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9e4d9;font-family:var(--sans);color:var(--ink);padding:26px}
+  .panel{max-width:560px;margin:0 auto;background:var(--card);border:1px solid var(--line-2);border-radius:14px;
+    box-shadow:0 24px 60px -32px rgba(60,40,15,.45);overflow:hidden}
+  .head{padding:16px 18px 12px;border-bottom:1px solid var(--line)}
+  .tag{font-size:10.5px;letter-spacing:.16em;color:var(--accent)}
+  h3{font-family:var(--serif);font-size:20px;margin:8px 0 6px}
+  .scene{margin:0;font-size:12.5px;color:var(--ink-2);line-height:1.7}
+  .body{padding:16px 18px 18px}
+
+  .flow{position:relative;padding-left:8px}
+  .spine{position:absolute;left:20px;top:14px;bottom:14px;width:2px;background:linear-gradient(var(--line-2),var(--line-2))}
+  .step{position:relative;display:grid;grid-template-columns:26px 1fr;gap:12px;margin:0 0 14px}
+  .dot{width:26px;height:26px;border-radius:50%;background:var(--paper-2);border:1px solid var(--line-2);
+    display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-size:11px;color:var(--accent);z-index:1}
+  .sbody{padding-top:2px}
+  .sname{font-size:13px;font-weight:600;color:var(--ink)}
+  .swhat{font-size:12px;color:var(--ink-2);margin-top:2px;line-height:1.65}
+  .dec{position:relative;margin:8px 0 0 0;background:var(--ok-soft);border-left:2px solid var(--ok);
+    border-radius:0 6px 6px 0;padding:6px 10px;font-size:11.5px;color:var(--ink-2);line-height:1.7}
+  .dec::before{content:"";position:absolute;left:-39px;top:50%;width:9px;height:9px;margin-top:-5px;
+    background:var(--card);border:1.5px solid var(--ok);transform:rotate(45deg)}
+  .dec::after{content:"";position:absolute;left:-30px;top:50%;width:30px;border-top:1px dashed var(--ok);opacity:.55}
+  .dec b{color:var(--ok);font-weight:600}
+  .dec .alt{color:var(--ink-3)}
+  .dec .alt b{color:var(--ink-2);font-weight:500}
+  .scen{margin-top:16px;border-top:1px dashed var(--line-2);padding-top:12px}
+  .cap{font-size:10.5px;letter-spacing:.14em;color:var(--ink-3);margin-bottom:7px}
+  .pills{display:flex;flex-wrap:wrap;gap:6px}
+  .pill{font-size:11.5px;border:1px solid var(--line-2);border-radius:999px;padding:4px 10px;color:var(--ink-2);background:#fff}
+  .note{margin:16px 0 0;font-size:11.5px;color:var(--ink-3);line-height:1.7}
+</style>
+</head>
+<body>
+<div class="panel">
+  <div class="head">
+    <div class="tag">工作流 · 判断线</div>
+    <h3>改动牵动多处时，先侦察再动手</h3>
+    <p class="scene">同一类改动以前要来回三次；这次一次过，因为顺序换了。</p>
+  </div>
+  <div class="body">
+    <div class="flow">
+      <div class="spine"></div>
+
+      <div class="step">
+        <div class="dot">01</div>
+        <div class="sbody">
+          <div class="sname">定口径</div>
+          <div class="swhat">先写清「什么算对」，再动手。</div>
+          <div class="dec"><b>先定口径还是先动手？</b>　拿这条：<b>先定口径</b><br><span class="alt">另一条路 → <b>先动手</b>：多返工三次，每次都要重定口径</span></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="dot">02</div>
+        <div class="sbody">
+          <div class="sname">只读侦察</div>
+          <div class="swhat">只读不写，摸清有几处依赖、哪处最脆。</div>
+          <div class="dec"><b>侦察到什么程度停？</b>　拿这条：<b>能说出「改这里会影响哪几处」</b><br><span class="alt">另一条路 → <b>继续读实现</b>：收益递减，还容易先入为主</span></div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="dot">03</div>
+        <div class="sbody">
+          <div class="sname">改一处</div>
+          <div class="swhat">一次只改一个点，留可回退的路。</div>
+          <div class="dec"><b>一次一处还是一批改？</b>　拿这条：<b>一次一处</b><br><span class="alt">另一条路 → <b>一批改完</b>：出错时分不清是哪处坏的</span></div>
+        </div>
+      </div>
+
+      <div class="step" style="margin-bottom:0">
+        <div class="dot">04</div>
+        <div class="sbody">
+          <div class="sname">一起验</div>
+          <div class="swhat">按第 1 步的口径整体验收，再收口。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="scen">
+      <div class="cap">入口场景（点一个，给这个场景的例子）</div>
+      <div class="pills">
+        <span class="pill">跨平台适配</span><span class="pill">改动牵动多文件</span>
+        <span class="pill">第三方服务不稳</span><span class="pill">数据迁移</span><span class="pill">需求反复变更</span>
+      </div>
+    </div>
+
+    <p class="note">主干是顺序，绿框是决策点（选了哪条、代价是什么）；细节文字留在卡里，图上只放动作名。</p>
+  </div>
+</div>
+</body>
+</html>

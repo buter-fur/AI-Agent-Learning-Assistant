@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7f4ee">
+<title>学习小助手</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='8'%20fill='%23b4432e'/%3E%3Ctext%20x='32'%20y='46'%20font-size='40'%20text-anchor='middle'%20fill='%23fdf8f0'%3E%E5%AD%A6%3C/text%3E%3C/svg%3E">
+<script>
+  /* 首屏前定主题：显式选择 > DSH 传入的 ?theme > 系统偏好。 */
+  (function () {
+    var saved = null;
+    try { saved = localStorage.getItem('learn-theme'); } catch (_e) {}
+    var q = new URLSearchParams(location.search).get('theme');
+    var dark = saved ? saved === 'dark' : (q ? q === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
+    document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  })();
+</script>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+
+<header class="masthead">
+  <div class="masthead-in">
+    <a class="brand" href="#deck" aria-label="学习小助手 · 回到卡片流">
+      <span class="seal" aria-hidden="true">学</span>
+      <span class="brand-text">
+        <b>学习小助手</b>
+        <em>旁听你的开发</em>
+      </span>
+    </a>
+    <nav class="nav" aria-label="视图">
+      <a href="#deck" data-view="deck">卡片流</a>
+      <a href="#quiz" data-view="quiz">答题</a>
+      <a href="#map" data-view="map">概念图</a>
+      <a href="#line" data-view="line">一条线</a>
+      <a href="#kbmap" data-view="kbmap">知识地图</a>
+      <span class="card-count" id="card-count" title="卡片总数 · 未看新卡" aria-label="卡片总数与未看新卡">
+        <b id="card-count-total">0</b>
+        <span class="card-count-unseen" id="card-count-unseen" hidden>+0</span>
+      </span>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换深色模式">深色</button>
+    </nav>
+  </div>
+</header>
+
+<main class="main" id="main">
+  <div class="boot" role="status">
+    <div class="kicker">学习小助手 · v1</div>
+    <p class="boot-line">正在把卡片摊开…</p>
+  </div>
+</main>
+
+<footer class="site-foot">
+  <span>学习小助手 · v1 · 本地卡片站</span>
+  <span>纸、墨、朱砂。每一张都从一次真实的卡住里来。</span>
+</footer>
+
+<noscript>
+  <div class="main"><p class="boot-line">这个页面需要 JavaScript 才能翻卡。</p></div>
+</noscript>
+
+<script src="./app.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,1220 @@
+{
+  "version": 1,
+  "generatedAt": 1791958080000,
+  "concepts": [
+    {
+      "id": "process-vs-program",
+      "name": "进程与程序",
+      "domain": "本地环境",
+      "problem": "服务为什么起不来",
+      "lane": "mechanism",
+      "desc": "程序是硬盘上的文件，进程是它跑起来后的一份实例。关窗口不等于关进程。",
+      "level": 2
+    },
+    {
+      "id": "port-exclusive",
+      "name": "端口独占",
+      "domain": "本地环境",
+      "problem": "服务为什么起不来",
+      "lane": "mechanism",
+      "desc": "同一台机器上，一个端口同一时间只能被一个程序占用。",
+      "level": 3
+    },
+    {
+      "id": "file-lock",
+      "name": "文件被占用",
+      "domain": "本地环境",
+      "problem": "文件为什么改不动",
+      "lane": "mechanism",
+      "desc": "文件被某个程序打开时，别的程序改不了它，和端口独占是同一个机制。",
+      "level": 2
+    },
+    {
+      "id": "absolute-path",
+      "name": "绝对路径",
+      "domain": "本地环境",
+      "problem": "改个名字为什么全坏",
+      "lane": "mechanism",
+      "desc": "从根目录一路写到底的完整地址。换个位置就失效，还常常是几个软件一起坏的源头。",
+      "level": 3
+    },
+    {
+      "id": "memory-at-start",
+      "name": "启动时读一次",
+      "domain": "运行与生效",
+      "problem": "改了为什么不生效",
+      "lane": "mechanism",
+      "desc": "程序启动时把代码和配置读进内存，之后一直用内存里那一份，不回头看硬盘。",
+      "level": 3
+    },
+    {
+      "id": "full-rebuild",
+      "name": "全量重跑",
+      "domain": "运行与生效",
+      "problem": "为什么改一点也要等",
+      "lane": "algorithm",
+      "desc": "启动流程每次都从头走一遍：读文件、编译、起服务，耗时跟改动量关系不大。",
+      "level": 2
+    },
+    {
+      "id": "token-budget",
+      "name": "token 预算",
+      "domain": "模型接口",
+      "problem": "接口为什么没返回内容",
+      "lane": "mechanism",
+      "desc": "一次回复允许输出的最大 token 数，思考内容也计入。",
+      "level": 3
+    },
+    {
+      "id": "empty-content",
+      "name": "正文为空",
+      "domain": "模型接口",
+      "problem": "接口为什么没返回内容",
+      "lane": "mechanism",
+      "desc": "接口返回成功、但没有正文。通常是被长度截断，或者被内容过滤。",
+      "level": 2
+    },
+    {
+      "id": "app-entry",
+      "name": "服务入口",
+      "domain": "代码怎么读",
+      "problem": "这行代码在干嘛",
+      "lane": "syntax",
+      "desc": "express() 请来一个工具箱，app 是你给它起的名字。后面都用这个名字跟它说话。",
+      "level": 1
+    },
+    {
+      "id": "await-fetch",
+      "name": "等结果回来",
+      "domain": "代码怎么读",
+      "problem": "这行代码在干嘛",
+      "lane": "syntax",
+      "desc": "fetch 发请求会先给一个「还在路上」的凭据；await 是等它变成真的响应，再往下走。",
+      "level": 1
+    },
+    {
+      "id": "silent-fallback",
+      "name": "静默降级",
+      "domain": "判断与验收",
+      "problem": "结果能信吗",
+      "lane": "judgment",
+      "desc": "主路径失败后悄悄走备用路径、不告诉用户，于是假结果看起来像真结果。",
+      "level": 3
+    },
+    {
+      "id": "verification-three",
+      "name": "验收三问",
+      "domain": "判断与验收",
+      "problem": "算做完了吗",
+      "lane": "judgment",
+      "desc": "断网会怎样、数据空会怎样、连点两下会怎样。三条里至少能抓到一条真问题。",
+      "level": 2
+    }
+  ],
+  "edges": [
+    {
+      "from": "process-vs-program",
+      "to": "port-exclusive",
+      "kind": "prereq",
+      "reason": "不知道关窗≠关进程，就看不懂谁占着"
+    },
+    {
+      "from": "process-vs-program",
+      "to": "file-lock",
+      "kind": "prereq",
+      "reason": "不认进程，就找不到是谁占着文件"
+    },
+    {
+      "from": "port-exclusive",
+      "to": "file-lock",
+      "kind": "same",
+      "reason": "都是一份资源只能给一个使用者"
+    },
+    {
+      "from": "process-vs-program",
+      "to": "memory-at-start",
+      "kind": "prereq",
+      "reason": "不知道进程，就理解不了内存里那份"
+    },
+    {
+      "from": "memory-at-start",
+      "to": "full-rebuild",
+      "kind": "same",
+      "reason": "同一个启动流程，读一次、整段跑一遍"
+    },
+    {
+      "from": "memory-at-start",
+      "to": "silent-fallback",
+      "kind": "cause",
+      "reason": "读进去的是旧代码，失败时顺着旧逻辑走了"
+    },
+    {
+      "from": "app-entry",
+      "to": "await-fetch",
+      "kind": "prereq",
+      "reason": "不认识入口，就看不懂请求挂在哪"
+    },
+    {
+      "from": "app-entry",
+      "to": "full-rebuild",
+      "kind": "prereq",
+      "reason": "读不懂入口，就判断不了它每次重跑什么"
+    },
+    {
+      "from": "token-budget",
+      "to": "empty-content",
+      "kind": "cause",
+      "reason": "思考把预算吃满，正文就没地方写"
+    },
+    {
+      "from": "empty-content",
+      "to": "silent-fallback",
+      "kind": "contrast",
+      "reason": "一个交白卷，一个假装成功，都容易当成没事"
+    },
+    {
+      "from": "silent-fallback",
+      "to": "verification-three",
+      "kind": "prereq",
+      "reason": "没见过假成功，就定不出验收口径"
+    },
+    {
+      "from": "absolute-path",
+      "to": "memory-at-start",
+      "kind": "same",
+      "reason": "都是旧值还在被用，改动看起来没生效"
+    }
+  ],
+  "cards": [
+    {
+      "id": "card-example-project-token-budget",
+      "lane": "mechanism",
+      "conceptId": "token-budget",
+      "level": "L2",
+      "title": "模型只交了草稿，正文是空的",
+      "scene": "点「AI 润色」，弹窗报「接口未返回文本内容」。可展开详情一看，里面躺着一大段思考过程。",
+      "question": "你觉得是哪里出了问题？",
+      "options": [
+        "提示词写坏了",
+        "输出额度被思考吃光了",
+        "我不知道"
+      ],
+      "answerIndex": 1,
+      "answer": "思考也算输出字数，额度被吃光，正文就交白卷。",
+      "metaphor": "你雇了个爱打草稿的写手：他先把草稿纸写满，再往正式稿上抄。纸就这么多，草稿写完，正式稿自然一片空白。",
+      "explain": "max_tokens 是这次最多能吐多少字，思考也算在里头。返回里正文、思考是两个字段，结束原因写 length 就是被长度截断。",
+      "terms": [
+        {
+          "term": "max_tokens",
+          "plain": "一次回复最多能吐多少字，思考也算。"
+        },
+        {
+          "term": "finish_reason",
+          "plain": "这次为什么停：stop 正常，length 截断。"
+        },
+        {
+          "term": "推理模型",
+          "plain": "先写一大段思考，再给答案的模型。"
+        }
+      ],
+      "takeaway": "以后看到「接口回了、正文空、还带一大段思考」，先看结束原因是不是 length。",
+      "boundary": {
+        "q": "换成不思考的模型，也能解决吗？",
+        "options": [
+          "能",
+          "不能",
+          "看情况"
+        ],
+        "answerIndex": 0,
+        "explain": "能绕过，但会丢掉推理能力，要看场景。"
+      },
+      "figure": {
+        "type": "budget-bar",
+        "caption": "预算是一根横条，先写草稿的人会把它先用完。",
+        "alt": "思考占满输出预算，正文长度为 0",
+        "spec": {
+          "total": 4096,
+          "used": 4096,
+          "segments": [
+            {
+              "label": "思考",
+              "value": 4096
+            },
+            {
+              "label": "正文",
+              "value": 0
+            }
+          ]
+        }
+      },
+      "quiz": [
+        {
+          "kind": "recall",
+          "q": "另一个项目里，接口返回成功但 content 为空，finish_reason=length。最可能是什么？",
+          "options": [
+            "模型不认识了",
+            "网络断了",
+            "输出额度不够"
+          ],
+          "answerIndex": 2,
+          "explain": "同一条：先看结束原因。"
+        },
+        {
+          "kind": "apply",
+          "q": "把 max_tokens 从 4096 调到 8192 后正文出现了，最可能的原因是？",
+          "options": [
+            "提示词变好了",
+            "预算够草稿和正文了",
+            "模型升级了"
+          ],
+          "answerIndex": 1,
+          "explain": "上限翻倍，思考之后还有地方写正文。"
+        }
+      ],
+      "source": {
+        "project": "example-project",
+        "session": "4ccf89a0",
+        "time": "2026-10-14 22:48",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "出现了一些问题，现在接口返回出来的是思维链"
+          },
+          {
+            "who": "assistant",
+            "text": "你用的 deepseek-flash 是推理模型，思考过程把 max_tokens 吃光了，正文（content）是空的。"
+          }
+        ]
+      },
+      "crossProject": [
+        "example-project",
+        "示例项目"
+      ],
+      "createdAt": 1791958080000
+    },
+    {
+      "id": "card-paper-arena-silent-fallback",
+      "lane": "judgment",
+      "conceptId": "silent-fallback",
+      "level": "L2",
+      "title": "出错时，它偷偷换了份模板",
+      "scene": "试跑审稿，意见驴头不对马嘴。一查：模型名多打了个字母，每次调用都 404，程序悄悄退回了离线模板。",
+      "question": "真正该修的是哪一层？",
+      "options": [
+        "降级没告诉用户，才最坑",
+        "把模型名改对就够了",
+        "我不知道"
+      ],
+      "answerIndex": 0,
+      "answer": "模型名要改，但更该骂的是静默降级：失败了却装作成功。",
+      "metaphor": "你请的翻译没来，助理怕你干等，拿一份模板顶上，还签了翻译的名字。",
+      "explain": "主路径失败后走备用路径，本身不算错；错在没信号。合格的降级要三件套：失败计数、界面警告、结果上标「离线替身」。",
+      "terms": [
+        {
+          "term": "静默降级",
+          "plain": "主路径挂了就走备胎，但不告诉用户。"
+        },
+        {
+          "term": "404",
+          "plain": "服务端说「没这个东西」，这里是模型名不存在。"
+        },
+        {
+          "term": "可观测性",
+          "plain": "把内部发生了什么露出来，让人判断结果可不可信。"
+        }
+      ],
+      "takeaway": "以后看到「结果像回事、但答非所问」，先问它真的连上了吗。",
+      "boundary": {
+        "q": "降级只在日志里记一笔，够吗？",
+        "options": [
+          "够",
+          "不够，界面上也要看得见",
+          "看情况"
+        ],
+        "answerIndex": 1,
+        "explain": "日志是给你事后查的，界面警告是给当时的你看的。"
+      },
+      "figure": {
+        "type": "branch",
+        "caption": "关键不在走哪条路，在出口有没有盖章。",
+        "alt": "主路失败后走备用路径，必须在出口标明正在降级",
+        "spec": {
+          "question": "主路连上了吗？",
+          "yes": {
+            "label": "真实模型，正常输出"
+          },
+          "no": {
+            "label": "退回离线模板，必须标「降级中」"
+          }
+        }
+      },
+      "quiz": [
+        {
+          "kind": "apply",
+          "q": "结果看着正常，但内容全是套话。第一步该查什么？",
+          "options": [
+            "调用日志里有没有 404 和 fallback 计数",
+            "用户是不是不会用",
+            "提示词是不是写坏了"
+          ],
+          "answerIndex": 0,
+          "explain": "先证明它真的连上了。"
+        },
+        {
+          "kind": "contrast",
+          "q": "报错和静默降级，哪个更难发现？",
+          "options": [
+            "报错",
+            "静默降级",
+            "一样"
+          ],
+          "answerIndex": 1,
+          "explain": "报错会喊，降级不会。"
+        }
+      ],
+      "source": {
+        "project": "示例项目",
+        "session": "5779dbfd",
+        "time": "2026-10-25 21:58",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "有没有搞错啊，这个驴头不对马嘴的怎么搞的？？？你这个软件完全变成根据那个示例论文的特化软件了！😠"
+          },
+          {
+            "who": "assistant",
+            "text": "真正该骂的是：降级是静默的，界面上没告诉你模型挂了。"
+          }
+        ]
+      },
+      "createdAt": 1791958080100
+    },
+    {
+      "id": "card-comfyui-rename-paths",
+      "lane": "mechanism",
+      "conceptId": "absolute-path",
+      "level": "L3",
+      "title": "只改了个文件夹名，怎么全坏了",
+      "scene": "把文件夹从「文件📁」改成「文件」，ComfyUI 当场找不到实例；几小时后，Python 环境也跟着失联。",
+      "question": "问题最可能出在哪？",
+      "options": [
+        "旧名字还被写死在很多地方",
+        "软件太脆弱，重装就好",
+        "我不知道"
+      ],
+      "answerIndex": 0,
+      "answer": "绝对路径被写死在配置和脚本里，改名让它们集体失联。",
+      "metaphor": "小区改了名：门牌、快递地址、朋友通讯录里还是老名字。人没搬，件全寄丢。",
+      "explain": "软件的「绝对路径」是从 /Users/... 写到底的完整地址。配置、pyvenv.cfg、脚本第一行的 shebang、软链，都可能存着旧路径。",
+      "terms": [
+        {
+          "term": "绝对路径",
+          "plain": "从根目录写到底的完整地址，换个位置就失效。"
+        },
+        {
+          "term": "软链",
+          "plain": "指向另一个路径的快捷方式，两头任一方动都可能断。"
+        },
+        {
+          "term": "shebang",
+          "plain": "脚本第一行，告诉系统用哪个解释器跑我。"
+        }
+      ],
+      "takeaway": "以后看到「只改了个名字，好几个软件一起坏」，先全盘搜一遍旧路径。",
+      "boundary": {
+        "q": "把旧路径用软链指到新位置，算修好了吗？",
+        "options": [
+          "算",
+          "不算",
+          "只是止疼"
+        ],
+        "answerIndex": 2,
+        "explain": "软链是止疼药：哪天牌子被摘掉，照样全线断。"
+      },
+      "figure": {
+        "type": "tree",
+        "caption": "一个旧名字被四处引用，改名就等于让四条线一起断。",
+        "alt": "旧文件夹名被四个地方分别写死引用",
+        "spec": {
+          "root": {
+            "label": "旧名字：~/文件📁",
+            "children": [
+              {
+                "label": "Comfy Desktop 的登记文件"
+              },
+              {
+                "label": "venv 的 pyvenv.cfg 与脚本 shebang"
+              },
+              {
+                "label": "指向 python 的软链"
+              },
+              {
+                "label": "DSH 工作区注册表"
+              }
+            ]
+          }
+        }
+      },
+      "quiz": [
+        {
+          "kind": "trace",
+          "q": "改了文件夹名后，ComfyUI 说「找不到实例」。应该先查什么？",
+          "options": [
+            "重装 ComfyUI",
+            "显卡驱动",
+            "它的登记文件里存的路径"
+          ],
+          "answerIndex": 2,
+          "explain": "登记文件里存的还是旧绝对路径。"
+        },
+        {
+          "kind": "contrast",
+          "q": "软链和「把旧路径全部改掉」，哪个是更彻底的修法？",
+          "options": [
+            "软链",
+            "一样",
+            "把旧路径全部改掉"
+          ],
+          "answerIndex": 2,
+          "explain": "软链只是临时指路，旧路径还在。"
+        }
+      ],
+      "source": {
+        "project": "ComfyUI",
+        "session": "c1da827c",
+        "time": "2026-11-03 22:01",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "我改了confyui的文件夹路径的文件夹名称，现在他找不到实例了，帮我急救一下"
+          },
+          {
+            "who": "assistant",
+            "text": "ComfyUI 的 venv 不是自包含的——pyvenv.cfg 的 home、bin/ 里几十个脚本的 shebang……全都写死着旧绝对路径"
+          }
+        ]
+      },
+      "crossProject": [
+        "ComfyUI",
+        "DSH 工作区"
+      ],
+      "createdAt": 1791958080200
+    },
+    {
+      "id": "card-port-in-use",
+      "lane": "mechanism",
+      "conceptId": "port-exclusive",
+      "level": "L2",
+      "title": "服务起不来，是端口坏了吗",
+      "scene": "npm run dev 报 EADDRINUSE: address already in use :::3000。刚才那个窗口明明已经关了。",
+      "question": "先检查什么？",
+      "options": [
+        "重启电脑",
+        "谁还在占着 3000 端口",
+        "我不知道"
+      ],
+      "answerIndex": 1,
+      "answer": "端口没坏，是上一个进程还占着。关窗口不等于关进程。",
+      "metaphor": "一扇门同一时间只能进一个人。你关了前台的门，店员还在里面上班，门牌还是那一个。",
+      "explain": "端口是程序在这台电脑上的门牌号，同一时间只能被一个进程占用。旧进程没退干净，新进程就撞在同一扇门上。",
+      "terms": [
+        {
+          "term": "端口",
+          "plain": "一台电脑上给不同服务编的门牌号。"
+        },
+        {
+          "term": "进程",
+          "plain": "程序跑起来之后的一份实例。"
+        }
+      ],
+      "takeaway": "以后看到 EADDRINUSE，先看谁占着，杀掉它，或换一个号。",
+      "boundary": {
+        "q": "换成 3001 端口能先跑起来，但这是修好了吗？",
+        "options": [
+          "没修好，旧进程还在占着",
+          "修好了",
+          "看情况"
+        ],
+        "answerIndex": 0,
+        "explain": "换号只是绕开，旧进程还在。"
+      },
+      "figure": {
+        "type": "branch",
+        "caption": "门牌只有一个，里面的人没走，下一个就进不来。",
+        "alt": "3000 端口被旧进程占着，新进程进不去，只能换端口",
+        "spec": {
+          "question": "3000 号门里还有人吗？",
+          "yes": {
+            "label": "旧进程没退，新进程进不去"
+          },
+          "no": {
+            "label": "没人占，重试 3000"
+          }
+        }
+      },
+      "quiz": [
+        {
+          "kind": "apply",
+          "q": "看谁占着 3000，最先跑哪条命令？",
+          "options": [
+            "lsof -i :3000",
+            "rm -rf node_modules",
+            "重启电脑"
+          ],
+          "answerIndex": 0,
+          "explain": "先看是谁，再决定杀不杀。"
+        },
+        {
+          "kind": "contrast",
+          "q": "关窗口和关进程，区别在哪？",
+          "options": [
+            "窗口是界面，进程还在后台跑",
+            "没区别",
+            "关窗口更彻底"
+          ],
+          "answerIndex": 0,
+          "explain": "店员走没走，跟门关没关是两件事。"
+        }
+      ],
+      "source": {
+        "project": "本地开发环境",
+        "session": "11-04",
+        "time": "2026-11-04 23:47",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "又起不来了。是不是端口坏了？我重启电脑试试。"
+          },
+          {
+            "who": "assistant",
+            "text": "不用重启电脑。是上一个进程还占着 3000，先看看是谁。"
+          }
+        ]
+      },
+      "createdAt": 1791958080300
+    },
+    {
+      "id": "card-file-locked",
+      "lane": "mechanism",
+      "conceptId": "file-lock",
+      "level": "L1",
+      "title": "文件没坏，为什么改不动",
+      "scene": "想改一个 Excel 文件，弹出「文件正在被另一个程序使用」。你明明没有打开它。",
+      "question": "最可能是什么？",
+      "options": [
+        "某个后台程序还开着它",
+        "文件坏了",
+        "我不知道"
+      ],
+      "answerIndex": 0,
+      "answer": "文件被某个程序打开了，占用没释放。跟端口独占是同一个机制。",
+      "metaphor": "一本书被人借走压在手边，你没法同时在上面改字。",
+      "explain": "文件被打开时，系统会先记一笔「正在使用」。没正常关掉，这一笔就一直留着，别的程序只能等。",
+      "terms": [
+        {
+          "term": "文件锁",
+          "plain": "文件被打开时系统留的一笔「正在使用」。"
+        },
+        {
+          "term": "进程",
+          "plain": "程序跑起来之后的一份实例。"
+        }
+      ],
+      "takeaway": "以后看到「文件被占用」，先找哪个程序还开着它，而不是怀疑文件坏了。",
+      "boundary": {
+        "q": "重启电脑几乎总能解决，这是好办法吗？",
+        "options": [
+          "是",
+          "不是，先找到占用的程序更好",
+          "不知道"
+        ],
+        "answerIndex": 1,
+        "explain": "重启是清空一切，代价大，还丢线索。"
+      },
+      "figure": {
+        "type": "branch",
+        "caption": "不是文件坏了，是使用它的那个人还没走。",
+        "alt": "文件没有被损坏，而是仍被某个程序打开着",
+        "spec": {
+          "question": "文件真的坏了吗？",
+          "yes": {
+            "label": "极少见，先别修文件"
+          },
+          "no": {
+            "label": "有程序还开着它，先关掉那个进程"
+          }
+        }
+      },
+      "quiz": [
+        {
+          "kind": "apply",
+          "q": "想找是谁占着文件，最对路的做法是？",
+          "options": [
+            "删掉再重建",
+            "换个文件名",
+            "用系统工具查占用它的程序"
+          ],
+          "answerIndex": 2,
+          "explain": "先找到占用者。"
+        },
+        {
+          "kind": "contrast",
+          "q": "文件占用和端口占用，共同点是什么？",
+          "options": [
+            "都会让硬盘变慢",
+            "都会让文件丢失",
+            "都是一份资源只能给一个使用者"
+          ],
+          "answerIndex": 2,
+          "explain": "同源：独占。"
+        }
+      ],
+      "source": {
+        "project": "本地文件",
+        "session": "demo",
+        "time": "2026-10-30 10:12",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "Excel 说文件被占用，是谁？"
+          },
+          {
+            "who": "assistant",
+            "text": "文件被另一个程序打开着，先找到它，不是文件坏了。"
+          }
+        ]
+      },
+      "createdAt": 1791958080400
+    },
+    {
+      "id": "card-runtime-restart",
+      "lane": "mechanism",
+      "conceptId": "memory-at-start",
+      "level": "L1",
+      "title": "改完代码，页面怎么没变",
+      "scene": "让 agent 改完一行代码，刷新浏览器，界面还是老样子。你开始怀疑文件没保存。",
+      "question": "最可能的原因是什么？",
+      "options": [
+        "文件没保存",
+        "程序用的还是内存里那份代码",
+        "我不知道"
+      ],
+      "answerIndex": 1,
+      "answer": "程序启动时把代码读进内存，改硬盘不等于改内存。",
+      "metaphor": "门店改了装修，可店员手里还拿着旧菜单，照着旧菜单出餐。",
+      "explain": "启动时读一次，之后一直用内存里的版本。重启就是让它重新读一遍硬盘。也解释了为什么热更新有时不生效。",
+      "terms": [
+        {
+          "term": "内存",
+          "plain": "程序跑起来以后，临时放东西的地方。"
+        },
+        {
+          "term": "热更新",
+          "plain": "不重启，只换掉正在跑的那部分。"
+        }
+      ],
+      "takeaway": "以后看到「改了没生效」，先看它是不是只在启动时读一次。",
+      "boundary": {
+        "q": "重启之后还是老样子，该怀疑什么？",
+        "options": [
+          "内存没刷新",
+          "改的可能是另一个文件，或浏览器缓存",
+          "我不知道"
+        ],
+        "answerIndex": 1,
+        "explain": "重启排除了内存，剩下的就是改错地方或缓存。"
+      },
+      "figure": {
+        "type": "timeline",
+        "caption": "改的是硬盘，跑的是内存里那份。",
+        "alt": "启动时读入内存，之后改硬盘不会影响正在运行的旧版本",
+        "spec": {
+          "steps": [
+            {
+              "label": "启动",
+              "detail": "把代码读进内存"
+            },
+            {
+              "label": "运行",
+              "detail": "一直用内存里那份"
+            },
+            {
+              "label": "改硬盘",
+              "detail": "内存里没有变"
+            },
+            {
+              "label": "刷新",
+              "detail": "看到的还是旧的"
+            }
+          ]
+        }
+      },
+      "quiz": [
+        {
+          "kind": "recall",
+          "q": "改了代码，重启后生效。说明刚才问题出在哪？",
+          "options": [
+            "硬盘上的文件",
+            "显卡",
+            "内存里的旧版本"
+          ],
+          "answerIndex": 2,
+          "explain": "重启会重新读硬盘。"
+        },
+        {
+          "kind": "apply",
+          "q": "想改完立刻看到效果，应该用什么？",
+          "options": [
+            "重启进程",
+            "热更新",
+            "重装系统"
+          ],
+          "answerIndex": 1,
+          "explain": "热更新只换运行时，不用整段重跑。"
+        }
+      ],
+      "source": {
+        "project": "本地开发环境",
+        "session": "11-04",
+        "time": "2026-11-04 23:52",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "改完文件、刷新页面，界面没变。这正常吗？"
+          },
+          {
+            "who": "assistant",
+            "text": "程序只在启动时把代码读一遍，之后一直用记在内存里的那份。"
+          }
+        ]
+      },
+      "createdAt": 1791958080500
+    },
+    {
+      "id": "card-express-entry",
+      "lane": "syntax",
+      "conceptId": "app-entry",
+      "level": "L0",
+      "title": "这行代码，到底在干嘛",
+      "scene": "app.js 第一行写着 const app = express()。agent 说「服务入口在这」，你盯着这行看了半天。",
+      "question": "这句话干了什么？",
+      "options": [
+        "把现成的工具箱拿过来，起名叫 app",
+        "定义了一个叫 express 的新函数",
+        "我不知道"
+      ],
+      "answerIndex": 0,
+      "answer": "把现成的 express 工具箱请进来，名字叫 app。",
+      "metaphor": "express() 是叫来一个现成的工具箱；const app 是给这个工具箱贴上你的名字。",
+      "explain": "const 是「起个名字，以后不再改指向」；express() 是调用工具箱，产出一个应用对象。后面所有 app.get、app.listen 都是在跟这个工具箱说话。",
+      "terms": [
+        {
+          "term": "const",
+          "plain": "起个名字，以后不改这个指向。"
+        },
+        {
+          "term": "express",
+          "plain": "一个帮你起网页服务的现成工具包。"
+        },
+        {
+          "term": "调用",
+          "plain": "把函数真的跑一次，拿到结果。"
+        }
+      ],
+      "takeaway": "以后看到 const x = 某函数()，先问：它请来了什么，起了什么名。",
+      "boundary": {
+        "q": "如果以后想换一个工具箱，最该改的是哪？",
+        "options": [
+          "等号右边那一句",
+          "app 这个名字",
+          "后面的 app.get"
+        ],
+        "answerIndex": 0,
+        "explain": "名字只是标签，换工具箱换的是右边。"
+      },
+      "figure": {
+        "type": "code-diff",
+        "caption": "被标出的这一行，在把工具箱接进来并起名。",
+        "alt": "代码第 2 行 const app = express() 被标出",
+        "spec": {
+          "file": "app.js",
+          "lines": [
+            {
+              "no": 1,
+              "text": "const express = require('express')",
+              "mark": "same"
+            },
+            {
+              "no": 2,
+              "text": "const app = express()",
+              "mark": "add"
+            },
+            {
+              "no": 3,
+              "text": "app.get('/', (req, res) => { ... })",
+              "mark": "same"
+            }
+          ]
+        }
+      },
+      "quiz": [
+        {
+          "kind": "recall",
+          "q": "app.get('/', ...) 里的 app 是什么？",
+          "options": [
+            "刚才 express() 产出的应用对象",
+            "一个网页",
+            "一个文件夹"
+          ],
+          "answerIndex": 0,
+          "explain": "app 是给工具箱起的名字。"
+        },
+        {
+          "kind": "contrast",
+          "q": "const 和 let 的区别，最接近哪个？",
+          "options": [
+            "const 不能改指向，let 可以",
+            "const 更快",
+            "没有区别"
+          ],
+          "answerIndex": 0,
+          "explain": "const 只是不许换名字指向。"
+        }
+      ],
+      "source": {
+        "project": "example-project",
+        "session": "app.js",
+        "time": "2026-10-20 21:10",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "这行 const app = express() 在干嘛？"
+          },
+          {
+            "who": "assistant",
+            "text": "const 是给下面这个东西起个名字，以后不再改它；express() 是叫来一个现成的工具箱。"
+          }
+        ]
+      },
+      "createdAt": 1791958080600
+    },
+    {
+      "id": "card-fetch-await",
+      "lane": "syntax",
+      "conceptId": "await-fetch",
+      "level": "L0",
+      "title": "等它回来，程序才往下走",
+      "scene": "agent 把请求改成了 const res = await fetch(url)。加了 await，后面的代码才不抢跑。",
+      "question": "await 在做什么？",
+      "options": [
+        "把请求发得更快",
+        "让程序等结果回来再继续",
+        "我不知道"
+      ],
+      "answerIndex": 1,
+      "answer": "await 的意思是：这行没回来，就先停在这，别往下走。",
+      "metaphor": "点外卖后坐着等，不等骑手到就先开饭，会吃空桌子。await 是等骑手到了再动筷。",
+      "explain": "fetch 发起请求会立刻返回一个「还在路上」的凭据；await 把它等成真正的响应。不写 await，下一行可能拿到空东西。",
+      "terms": [
+        {
+          "term": "fetch",
+          "plain": "浏览器里发网络请求的函数。"
+        },
+        {
+          "term": "Promise",
+          "plain": "一个「现在还没有、以后会有」的结果。"
+        }
+      ],
+      "takeaway": "以后看到「结果莫名是空的」，先看该不该在这行加 await。",
+      "boundary": {
+        "q": "所有函数前面都该加 await 吗？",
+        "options": [
+          "该",
+          "不该，只有真需要等结果时",
+          "不知道"
+        ],
+        "answerIndex": 1,
+        "explain": "等不该等的东西，只会让页面卡住。"
+      },
+      "figure": {
+        "type": "code-diff",
+        "caption": "多出来的 await，是让第 13 行等第 12 行真的回来。",
+        "alt": "第 12 行从 fetch(url) 改成 await fetch(url)",
+        "spec": {
+          "file": "app.js",
+          "lines": [
+            {
+              "no": 12,
+              "text": "const res = fetch(url)",
+              "mark": "del"
+            },
+            {
+              "no": 12,
+              "text": "const res = await fetch(url)",
+              "mark": "add"
+            },
+            {
+              "no": 13,
+              "text": "if (!res.ok) throw new Error(res.status)",
+              "mark": "same"
+            }
+          ]
+        }
+      },
+      "quiz": [
+        {
+          "kind": "apply",
+          "q": "不写 await，下一行读到 res.ok 时可能是什么？",
+          "options": [
+            "一定是 true",
+            "一定报错",
+            "可能是个还没填好的 Promise"
+          ],
+          "answerIndex": 2,
+          "explain": "请求还在路上，res 不是响应。"
+        },
+        {
+          "kind": "trace",
+          "q": "async 函数里忘了 await，最常见的症状是？",
+          "options": [
+            "请求没发出去",
+            "电脑变慢",
+            "代码提前用了还没到的结果"
+          ],
+          "answerIndex": 2,
+          "explain": "顺序错了，不是网络错了。"
+        }
+      ],
+      "source": {
+        "project": "example-project",
+        "session": "app.js",
+        "time": "2026-10-20 21:30",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "这一行前面为什么要加 await"
+          },
+          {
+            "who": "assistant",
+            "text": "await 是等结果回来再往下走；不加的话，下一行拿到的是还没完成的 Promise。"
+          }
+        ]
+      },
+      "createdAt": 1791958080700
+    },
+    {
+      "id": "card-devserver-rebuild",
+      "lane": "algorithm",
+      "conceptId": "full-rebuild",
+      "level": "L1",
+      "title": "改一行，为什么也要等三秒",
+      "scene": "只改了一个按钮文案，dev server 却整段重启，进度条又走了三秒。",
+      "question": "代价出在哪？",
+      "options": [
+        "它每次都从头跑一遍流程",
+        "改得越多越慢，这次碰巧慢",
+        "我不知道"
+      ],
+      "answerIndex": 0,
+      "answer": "它每次把启动流程整体重跑，耗时不在改动量，在整体重来。",
+      "metaphor": "每次改一个字，都要把整本书重新印刷装订一遍，再放回书架。",
+      "explain": "启动要读文件、编译、起服务；改一行和改一百行，这条流水线都要走一遍，所以耗时差不多。热更新快，是因为它只换运行时那部分。",
+      "terms": [
+        {
+          "term": "dev server",
+          "plain": "开发时帮你自动编译、刷新的本地服务。"
+        },
+        {
+          "term": "编译",
+          "plain": "把源码翻译成机器能直接跑的东西。"
+        }
+      ],
+      "takeaway": "以后嫌改得慢，先看它是不是每次都整体重跑，而不是改得太多。",
+      "boundary": {
+        "q": "把改动拆成更小的批次，能明显变快吗？",
+        "options": [
+          "能",
+          "看情况",
+          "不能，整体重跑跟改多少无关"
+        ],
+        "answerIndex": 2,
+        "explain": "只要流水线从头走，改一行也一样慢。"
+      },
+      "figure": {
+        "type": "timeline",
+        "caption": "耗时不在改动量，在每个环节都要从头走一遍。",
+        "alt": "读文件、编译、起服务整条流水线每次都要重走",
+        "spec": {
+          "steps": [
+            {
+              "label": "读文件",
+              "detail": "全部重新读"
+            },
+            {
+              "label": "编译",
+              "detail": "全部重新编"
+            },
+            {
+              "label": "起服务",
+              "detail": "旧连接断一次"
+            },
+            {
+              "label": "能看了",
+              "detail": "三秒过去"
+            }
+          ]
+        }
+      },
+      "quiz": [
+        {
+          "kind": "recall",
+          "q": "热更新为什么快？",
+          "options": [
+            "它跳过了整个启动流程",
+            "它换了台电脑",
+            "它把代码藏起来了"
+          ],
+          "answerIndex": 0,
+          "explain": "只换运行时那部分，不整体重来。"
+        },
+        {
+          "kind": "apply",
+          "q": "什么样的改动，多半需要重启？",
+          "options": [
+            "改启动时的配置",
+            "改界面文案",
+            "改一个按钮颜色"
+          ],
+          "answerIndex": 0,
+          "explain": "启动时读一次的配置，改了要重读。"
+        }
+      ],
+      "source": {
+        "project": "example-project",
+        "session": "dev-server",
+        "time": "2026-10-21 00:12",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "为什么改一下要等三秒"
+          },
+          {
+            "who": "assistant",
+            "text": "它每次都把启动流程从头跑一遍，连没变的文件也重新读、重新编译。"
+          }
+        ]
+      },
+      "crossProject": [
+        "示例项目"
+      ],
+      "createdAt": 1791958080800
+    },
+    {
+      "id": "card-done-three-questions",
+      "lane": "judgment",
+      "conceptId": "verification-three",
+      "level": "L2",
+      "title": "能跑，就算做完了吗",
+      "scene": "功能点开是好的，你准备收工。可断网、空数据、连点两下，这三种情况都还没试过。",
+      "question": "这算做完了吗？",
+      "options": [
+        "不算，失败路径还没试",
+        "算，功能能用就行",
+        "我不知道"
+      ],
+      "answerIndex": 0,
+      "answer": "能跑只是主路径。断网、空数据、连点两下，至少试一遍再收工。",
+      "metaphor": "新车能在直路上开，不等于刹车、雨天、满载都没问题。",
+      "explain": "验收是在找「什么情况下它会坏」。三个最常见：网络断了、数据为空、同一个按钮被连点两下。",
+      "terms": [
+        {
+          "term": "主路径",
+          "plain": "用户最常走的那条正常流程。"
+        },
+        {
+          "term": "降级",
+          "plain": "主路径失败后，改走备用的那条路。"
+        }
+      ],
+      "takeaway": "以后准备说「做完了」，先补一遍断网、空数据、连点两下。",
+      "boundary": {
+        "q": "三个都试过没问题，就能保证没 bug 吗？",
+        "options": [
+          "不能，只是覆盖了最常见的情况",
+          "能",
+          "不知道"
+        ],
+        "answerIndex": 0,
+        "explain": "验收是提高把握，不是证明没有 bug。"
+      },
+      "figure": {
+        "type": "compare",
+        "caption": "左边完成得快，右边才敢收工。",
+        "alt": "只走主路径 vs 补三条失败路径",
+        "spec": {
+          "left": {
+            "label": "只走主路径",
+            "cost": "看起来能用"
+          },
+          "right": {
+            "label": "补三条失败路径",
+            "cost": "知道哪里会坏"
+          }
+        }
+      },
+      "quiz": [
+        {
+          "kind": "recall",
+          "q": "验收三问里，不包括哪一项？",
+          "options": [
+            "断网会怎样",
+            "数据空会怎样",
+            "代码行数够不够"
+          ],
+          "answerIndex": 2,
+          "explain": "验收问的是失败路径。"
+        },
+        {
+          "kind": "apply",
+          "q": "一个保存按钮，最该补试哪一条？",
+          "options": [
+            "连点两下会不会存两条",
+            "换个浏览器主题",
+            "把按钮换个颜色"
+          ],
+          "answerIndex": 0,
+          "explain": "重复提交是最常见的坑。"
+        }
+      ],
+      "source": {
+        "project": "示例项目",
+        "session": "验收记录",
+        "time": "2026-10-25 22:10",
+        "quotes": [
+          {
+            "who": "user",
+            "text": "这个功能算做完了吗"
+          },
+          {
+            "who": "assistant",
+            "text": "「能跑」不等于「做完」。三个问题：断网会怎样、数据空会怎样、连点两下会怎样。"
+          }
+        ]
+      },
+      "crossProject": [
+        "example-project"
+      ],
+      "createdAt": 1791958080900
+    }
+  ],
+  "stats": {
+    "cards": 10,
+    "concepts": 12,
+    "byLane": {
+      "mechanism": 5,
+      "syntax": 2,
+      "algorithm": 1,
+      "judgment": 2
+    }
+  }
+}

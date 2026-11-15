@@ -2,3 +2,8 @@ node_modules/
 .DS_Store
 *.log
 data/
+
+# 主项目运行时数据
+app/config.json
+app/data/
+app/public/_qa/

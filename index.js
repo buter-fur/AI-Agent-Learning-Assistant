@@ -37,7 +37,11 @@ const VALUE = /本质|取舍|关键(是|在)|原则|结论(是|：)|记住|重�
 
 /** 插件本体所在目录；默认从它的隔壁找学习小助手。 */
 const PLUGIN_DIR = path.dirname(fileURLToPath(import.meta.url));
-const DEFAULT_APP_DIR = path.join(path.resolve(PLUGIN_DIR, ".."), "学习小助手", "app");
+const LOCAL_APP_DIR = path.join(path.resolve(PLUGIN_DIR, ".."), "学习小助手", "app");
+const REPO_APP_DIR = path.join(PLUGIN_DIR, "app");
+const DEFAULT_APP_DIR = fs.existsSync(path.join(LOCAL_APP_DIR, "src", "serve.mjs"))
+	? LOCAL_APP_DIR
+	: REPO_APP_DIR;
 const DEFAULT_KB_DIR = path.join(process.env.HOME || os.homedir(), "rag");
 const DEFAULT_OLLAMA_BIN = "/opt/homebrew/bin/ollama";
 

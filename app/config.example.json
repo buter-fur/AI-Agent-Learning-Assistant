@@ -1,0 +1,28 @@
+{
+  "baseURL": "https://api.deepseek.com",
+  "model": "deepseek-flash",
+  "apiKey": "",
+  "timeoutMs": 60000,
+  "retries": 2,
+  "jsonMode": true,
+  "notifyMode": "精简",
+  "localJudge": {
+    "enabled": true,
+    "baseURL": "http://127.0.0.1:11434",
+    "model": "qwen3.8:27b-q5_K_M",
+    "timeoutMs": 20000,
+    "numCtx": 4096,
+    "numPredict": 96
+  },
+  "cardLimit": 50,
+  "historyPriority": [
+    "api",
+    "local",
+    "dsh"
+  ],
+  "historyLookback": {
+    "mode": "turns",
+    "turns": 8,
+    "days": 7
+  }
+}
