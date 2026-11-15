@@ -17,7 +17,20 @@ node src/serve.mjs --open
 
 默认地址 `http://127.0.0.1:4780`。示例配置默认 `thinking: {type: "disabled"}`，避免部分账号只回思考、不给正文；换非 DeepSeek 端点时删掉这个字段。没有卡片数据时会加载 `public/mock.json` 的合成示例；服务首次启动会在 `data/cards.db` 自动建空库。
 
+> 改过 `public/` 下的前端文件：刷新页面即可。改过 `src/` 下的 Host 半边（serve/kbmap 等）：需要重启一次 DSH（或插件停用/启用）才会跑新代码。
+
 **设置页**：`http://127.0.0.1:4780/settings.html`，不依赖 DSH 插件也能填 API、模型、优先级和回溯范围。
+
+## 知识缓存（知识地图的数据源）
+
+知识地图不要求本地模型或 Chroma 知识库：`kb_log` 表专门存知识条目，**不受 50 张卡上限约束**，卡片、历史补卡、种子卡会自动同步进来，也可以在「知识地图 → 管理知识缓存」里手动增删改。
+
+- 服务启动时自动补齐；条目或卡片有变化时，下一次地图请求会重建（几百条 <1s）。
+- 手动重建：`node src/kbmap.mjs`（只同步卡片不重建：`node src/kbmap.mjs --sync`）。
+- 生成物仍是 `data/kb-tags.json`、`data/kb-code-map.json`、`data/kb-map.json`，将来接回 Chroma 知识库时可原样覆盖。
+- 标签用 `standards/tag-map.json` 的受控词表 + 规则做确定性归类；语义地图默认用字符 bigram TF-IDF + PCA；检索兜底用同一份缓存的加权关键词覆盖打分。
+- **可选远程 embedding**：设置页「语义地图 · 远程 Embedding」可接任何 OpenAI 兼容 `/v1/embeddings`（OpenAI / SiliconFlow / 阿里百炼 / 自建）。不接也能用，语义地图会如实标注“本地字面相似度、未接 embedding”，不冒充语义结果；接了以后向量按内容哈希缓存在 `data/embeddings.json`，重复重建不重复花钱。协议与配置见 `docs/CONTRACT.md` 第 10 节。
+- 卡片池到 50 张上限时，被拒绝的历史卡 / 种子卡仍会写进知识缓存，不会丢知识。
 
 ## Windows
 
@@ -33,7 +46,9 @@ node src/serve.mjs --open
 ## 主要入口
 
 - `src/serve.mjs`：卡片站 HTTP 服务
-- `src/db.mjs`：SQLite schema（卡片/概念/复习/历史/种子/扫描开关）
+- `src/db.mjs`：SQLite schema（卡片/概念/复习/历史/种子/知识缓存/扫描开关）
+- `src/kbmap.mjs`：知识缓存同步、标签/代码/语义地图生成、本地检索兜底
+- `src/embed.mjs`：远程 embedding 提供商接口（OpenAI 兼容协议、缓存、连通性自检）
 - `src/whisper.mjs`：实时匹配与价值分档
 - `src/history.mjs`：旧会话补卡
 - `src/seed.mjs`：主动发现的种子卡

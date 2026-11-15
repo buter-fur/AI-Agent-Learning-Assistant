@@ -2347,6 +2347,109 @@ button {
 
 .kb-search:focus { outline: 2px solid var(--accent-soft); outline-offset: 0; border-color: var(--accent); }
 
+/* ── 知识缓存管理（知识地图的数据源） ───────────────────── */
+
+.kb-cache-strip { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+.kb-cache-strip-text { color: var(--ink-3); font-size: 12px; letter-spacing: .04em; }
+.kb-cache-strip .btn { padding: 4px 12px; font-size: 12px; }
+.kb-cache-strip-link { color: var(--ink-3); font-size: 11.5px; text-decoration: none; border-bottom: 1px dashed var(--line-2); padding-bottom: 1px; }
+.kb-cache-strip-link:hover { color: var(--accent); border-color: var(--accent); }
+
+/* ── 语义地图：接没接 embedding，如实显示 ───────────────── */
+
+.kb-embed-note {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--card);
+  color: var(--ink-2);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.kb-embed-note.is-local { display: flex; border-color: #c9a26a; background: rgba(201, 162, 106, .08); }
+.kb-embed-note.is-on { display: flex; border-color: #7f9f8a; background: rgba(127, 159, 138, .08); }
+.kb-embed-note a { color: var(--accent); text-decoration: none; white-space: nowrap; }
+.kb-embed-note a:hover { text-decoration: underline; }
+
+.kb-manager-in { width: min(880px, 96vw); }
+
+.kb-cache-toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 12px; }
+.kb-cache-search {
+  flex: 1 1 200px;
+  min-width: 160px;
+  padding: 6px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+.kb-cache-search:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
+.kb-cache-select {
+  padding: 5px 8px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.kb-cache-list { display: flex; flex-direction: column; gap: 8px; }
+.kb-cache-empty { margin: 0; padding: 18px 0; color: var(--ink-3); font-size: 12.5px; }
+
+.kb-cache-row {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--paper);
+}
+.kb-cache-row.is-editing { border-color: var(--accent); background: var(--accent-soft); }
+
+.kb-cache-row-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.kb-cache-row-head b { font-weight: 500; font-size: 13.5px; }
+.kb-cache-badge {
+  flex: none;
+  padding: 1px 7px;
+  border: 1px solid var(--line-2);
+  border-radius: 999px;
+  color: var(--ink-3);
+  font-size: 10.5px;
+}
+.kb-cache-badge.is-pending { color: #8a5a2b; border-color: #c9a26a; }
+.kb-cache-badge.is-archived { opacity: .7; }
+
+.kb-cache-summary { margin: 0; color: var(--ink-2); font-size: 12px; line-height: 1.6; }
+.kb-cache-meta { margin: 0; color: var(--ink-3); font-size: 11px; line-height: 1.6; }
+.kb-cache-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.kb-cache-actions .btn { padding: 3px 9px; font-size: 11.5px; }
+.btn.is-danger { color: var(--accent); border-color: currentColor; }
+.btn.is-danger:hover { background: var(--accent-soft); }
+
+.kb-cache-form { display: flex; flex-direction: column; gap: 6px; }
+.kb-cache-form-row { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 8px; }
+.kb-cache-input {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--line-2);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font-family: inherit;
+  font-size: 12.5px;
+}
+.kb-cache-input:focus { outline: 2px solid var(--accent-soft); border-color: var(--accent); }
+
 #kb-canvas {
   display: block;
   width: 100%;

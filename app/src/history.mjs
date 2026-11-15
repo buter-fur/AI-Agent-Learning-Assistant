@@ -22,6 +22,7 @@ import { search as kbSearch, thresholds as kbThresholds } from "./kb.mjs";
 import { loadConfig, chat, parseJsonLoose } from "./llm.mjs";
 import { judgeConfig } from "./judge.mjs";
 import { upsertCards, upsertConcepts, upsertEdges } from "./db.mjs";
+import { logCardEntry } from "./kbmap.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LIMITS = { title: 18, scene: 80, question: 40, answer: 40, metaphor: 80, explain: 140, takeaway: 50, query: 40 };
@@ -409,6 +410,8 @@ export async function importGenerated(db, items, { scanId } = {}) {
       }
       if (pool >= limit) {
         limitHit = true;
+        // 卡片池到上限不等于知识作废：把这条已验证的知识落进本地知识缓存（不受 50 张限制）。
+        try { logCardEntry(db, card, { origin: "history", status: "active" }); } catch { /* 缓存写失败不挡补卡 */ }
         rejected.push({ candidateId: item.candidateId, card: card.id, reasons: [`未学卡片上限 ${limit}，先淘汰旧卡再补历史`] });
         continue;
       }

@@ -10,6 +10,8 @@
     "serve": "node src/serve.mjs",
     "start": "node src/serve.mjs",
     "all": "node src/scan.mjs && node src/ingest.mjs && node src/serve.mjs",
+    "kbmap": "node src/kbmap.mjs",
+    "kbsync": "node src/kbmap.mjs --sync",
     "check": "node src/generate.mjs --check",
     "gen": "node src/generate.mjs",
     "qa": "node src/qa.mjs"

@@ -132,6 +132,30 @@ CREATE TABLE IF NOT EXISTS seed (
   created_at INTEGER NOT NULL
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_seed_hash ON seed(hash);
+
+-- 知识缓存（知识库的本地轻量替身）：不受 50 张卡上限约束，卡片只是它的一类来源。
+-- 知识地图（标签网络/代码地图/语义地图）都从这里出，用户可以在卡片站里管理。
+CREATE TABLE IF NOT EXISTS kb_log (
+  id TEXT PRIMARY KEY,
+  card_id TEXT,                            -- 关联卡片（如果有）
+  origin TEXT NOT NULL DEFAULT 'card',     -- card | history | seed | manual | ingest
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL DEFAULT '',
+  text TEXT NOT NULL DEFAULT '',
+  lane TEXT NOT NULL DEFAULT 'mechanism',
+  project TEXT NOT NULL DEFAULT '',
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  quotes_json TEXT NOT NULL DEFAULT '[]',
+  source_json TEXT NOT NULL DEFAULT '{}',
+  files_json TEXT NOT NULL DEFAULT '[]',   -- 代码地图：来源文件（自动探测后落库）
+  status TEXT NOT NULL DEFAULT 'active',   -- active | pending | archived
+  confidence TEXT NOT NULL DEFAULT 'A',
+  created_at INTEGER NOT NULL DEFAULT 0,
+  updated_at INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_kb_log_status ON kb_log(status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_kb_log_project ON kb_log(project);
+CREATE INDEX IF NOT EXISTS idx_kb_log_card ON kb_log(card_id);
 `;
 
 export function openDb(dbFile) {

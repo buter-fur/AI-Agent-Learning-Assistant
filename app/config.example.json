@@ -15,6 +15,19 @@
     "numPredict": 96
   },
   "cardLimit": 50,
+  "embedding": {
+    "enabled": false,
+    "provider": "openai-compatible",
+    "baseURL": "",
+    "model": "",
+    "apiKey": "",
+    "dim": 0,
+    "timeoutMs": 10000,
+    "batchSize": 64,
+    "maxChars": 1800,
+    "maxEntries": 300,
+    "useForSearch": false
+  },
   "historyPriority": [
     "api",
     "local",

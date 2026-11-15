@@ -14,6 +14,7 @@ import { judgeConfig } from "./judge.mjs";
 import { SYSTEM, SCHEMA_HINT } from "./prompt.mjs";
 import { validateCard, historyMeta, setHistoryMeta } from "./history.mjs";
 import { upsertCards, upsertConcepts, upsertEdges } from "./db.mjs";
+import { logSeedPending, promoteSeedLog } from "./kbmap.mjs";
 import { fmtTime, truncate } from "./util.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -100,11 +101,14 @@ function insertSeed(db, data, meta) {
     meta.sessionId || "", "new", now
   );
   setHistoryMeta(db, "lastSeedAt", now);
-  return {
+  const seed = {
     id, title: data.title, takeaway: data.takeaway, quote: data.quote,
     text: meta.text.slice(0, 4000), lane: data.lane,
     project: meta.project || "", sessionId: meta.sessionId || "", createdAt: now
   };
+  // 种子也是知识：先以 pending 存进本地知识缓存，卡片池满也不丢；展开后再升级。
+  try { logSeedPending(db, seed); } catch { /* 缓存写失败不挡种子卡 */ }
+  return seed;
 }
 
 /** 只生成种子；没有 API key 时返回 needsDsh 和提示词，交给 Host 兜底。 */
@@ -221,7 +225,10 @@ export async function expandSeed(db, seedId) {
   const cards = Array.isArray(parsed.cards) ? parsed.cards : [];
   if (!cards.length) return { ok: false, error: "模型没有产出完整卡" };
   const limit = Number(config().cardLimit) || 50;
-  if (activePoolSize(db) >= limit) return { ok: false, error: `未学卡片上限 ${limit}，先淘汰旧卡再展开` };
+  if (activePoolSize(db) >= limit) {
+    try { logSeedPending(db, seed); } catch { /* 已有 pending 条目也无妨 */ }
+    return { ok: false, error: `未学卡片上限 ${limit}，先淘汰旧卡再展开` };
+  }
 
   const concepts = Array.isArray(parsed.concepts) ? parsed.concepts : [];
   const edges = Array.isArray(parsed.edges) ? parsed.edges : [];
@@ -256,6 +263,8 @@ export async function expandSeed(db, seedId) {
     if (valid.length) upsertEdges(db, valid);
   }
   db.prepare("UPDATE seed SET status='expanded' WHERE id=?").run(seed.id);
+  // pending 缓存条目升级为正式知识条目（代码地图/标签网络立刻能看到）。
+  try { promoteSeedLog(db, seed, chosen); } catch { /* 缓存升级失败不挡展开 */ }
   return { ok: true, card: chosen, engine: engine.label };
 }
 

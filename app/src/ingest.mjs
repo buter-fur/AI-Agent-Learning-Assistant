@@ -8,6 +8,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { readJsonlSync, listSessionFiles, ensureDir, truncate } from "./util.mjs";
 import { openDb, upsertCards, upsertConcepts, upsertEdges, dbPath, resetDb } from "./db.mjs";
+import { logCardEntry, syncCardsToKbLog } from "./kbmap.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const LIMITS = { title: 18, scene: 80, question: 40, answer: 40, metaphor: 80, explain: 140, takeaway: 50, query: 40 };
@@ -203,7 +204,11 @@ async function main() {
   const activePool = new Set(existing.filter((r) => !knownConcepts.has(r.concept_id)).map((r) => r.id));
   for (const c of allCards) if (!knownConcepts.has(c.conceptId)) activePool.add(c.id);
   if (activePool.size > cardLimit) {
-    console.error(`未学卡片上限 ${cardLimit}：现有/本次合计 ${activePool.size} 张。先归档或淘汰旧卡，再重跑 ingest。`);
+    // 卡片池满了先把这次已验证的知识写进本地知识缓存，再报错退出；知识不因上限丢掉。
+    try {
+      for (const c of allCards) logCardEntry(db, c, { origin: "ingest", status: "active" });
+    } catch { /* 缓存写失败不改变退出码 */ }
+    console.error(`未学卡片上限 ${cardLimit}：现有/本次合计 ${activePool.size} 张。先归档或淘汰旧卡，再重跑 ingest。（已验证的 ${allCards.length} 条已存入知识缓存）`);
     process.exit(1);
   }
 
@@ -214,6 +219,8 @@ async function main() {
       && ["prereq", "cause", "contrast", "same"].includes(e.kind));
     upsertEdges(db, valid);
   }
+
+  try { syncCardsToKbLog(db); } catch { /* 知识缓存同步失败不挡入库 */ }
 
   const dbCounts = {
     concepts: db.prepare("SELECT COUNT(*) c FROM concept").get().c,

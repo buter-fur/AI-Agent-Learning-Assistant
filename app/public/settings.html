@@ -42,6 +42,8 @@
     </a>
     <nav class="nav" aria-label="导航">
       <a href="./">卡片站</a>
+      <a href="./#kbmap/semantic">语义地图</a>
+      <a href="#embedding">Embedding 设置</a>
       <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换深色模式">深色</button>
     </nav>
   </div>
@@ -101,6 +103,73 @@
 
     <div class="settings-sep"></div>
     <div class="settings-note" id="localNote">本地模型状态读取中…</div>
+  </section>
+
+  <section class="settings-card" id="embedding">
+    <h1>语义地图 · 远程 Embedding（可选）</h1>
+    <p class="settings-intro">
+      语义地图默认用本地字面相似度（字符 bigram TF-IDF），不联网、不花钱。接上远程 embedding 后，会用语义向量排布，并支持“检索也用 embedding”。<b>没接时页面会明确标注“未接 embedding、不是语义结果”，不会拿字面结果冒充语义。</b>
+    </p>
+
+    <div class="settings-field">
+      <label for="embEnabled">启用远程 embedding</label>
+      <select id="embEnabled">
+        <option value="0">关闭（默认，本地字面相似度）</option>
+        <option value="1">开启</option>
+      </select>
+      <div class="settings-hint">必须同时填 API 地址、模型名和 API Key 才会真正发请求；只填一半时设置页会提示“未生效”。</div>
+    </div>
+
+    <div class="settings-field">
+      <label for="embProvider">提供商 / 协议</label>
+      <select id="embProvider"></select>
+      <div class="settings-hint" id="embProviderHint"></div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-field">
+        <label for="embBaseURL">API 地址（到 /v1）</label>
+        <input id="embBaseURL" type="url" placeholder="https://api.openai.com/v1" autocomplete="off">
+      </div>
+      <div class="settings-field">
+        <label for="embModel">Embedding 模型</label>
+        <input id="embModel" type="text" placeholder="text-embedding-3-small" autocomplete="off">
+      </div>
+    </div>
+
+    <div class="settings-field">
+      <label for="embKey">Embedding API Key</label>
+      <input id="embKey" type="password" placeholder="留空表示不修改" autocomplete="off">
+      <div class="settings-hint" id="embKeyHint">不会把明文 key 回传到浏览器。</div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-field">
+        <label for="embDim">向量维度（0 = 由服务端决定）</label>
+        <input id="embDim" type="number" min="0" max="4096" value="0">
+      </div>
+      <div class="settings-field">
+        <label for="embMaxEntries">最多做 embedding 的条目数</label>
+        <input id="embMaxEntries" type="number" min="1" max="5000" value="300">
+        <div class="settings-hint">超过上限会退回本地字面相似度，避免一次花太多费用。</div>
+      </div>
+    </div>
+
+    <div class="settings-field">
+      <label for="embUseSearch">实时检索也用 embedding</label>
+      <select id="embUseSearch">
+        <option value="0">只用本地关键词（默认，零延迟）</option>
+        <option value="1">开启（每次查询多一次小请求，失败自动退回关键词）</option>
+      </select>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn btn-primary" id="embSave" type="button">保存</button>
+      <button class="btn btn-ghost" id="embTest" type="button">测试连接</button>
+      <button class="btn btn-ghost" id="embRebuild" type="button">重建语义地图</button>
+      <span class="settings-status" id="embStatus"></span>
+    </div>
+    <div class="settings-note" id="embLast"></div>
   </section>
 </main>
 
@@ -175,6 +244,111 @@
   var d0 = document.documentElement.dataset.theme === 'dark';
   $('theme-toggle').textContent = d0 ? '浅色' : '深色';
   json('/api/settings/llm').then(apply).catch(function (e) { setStatus('读取失败：' + e.message); });
+
+  /* ── 语义地图 · 远程 Embedding ───────────────────────────── */
+
+  var embState = null;
+  function embStatus(text) { $('embStatus').textContent = text || ''; }
+  function embProviderBy(id) { return (embState && embState.providers || []).filter(function (p) { return p.id === id; })[0] || null; }
+  function paintEmbedding(data) {
+    embState = data;
+    $('embEnabled').value = data.enabled ? '1' : '0';
+    var sel = $('embProvider');
+    sel.textContent = '';
+    (data.providers || []).forEach(function (p) {
+      var opt = document.createElement('option');
+      opt.value = p.id;
+      opt.textContent = p.label;
+      sel.appendChild(opt);
+    });
+    sel.value = data.provider || 'openai-compatible';
+    $('embBaseURL').value = data.baseURL || '';
+    $('embBaseURL').placeholder = (embProviderBy(sel.value) || {}).baseURL || 'https://api.openai.com/v1';
+    $('embModel').value = data.model || '';
+    $('embModel').placeholder = (embProviderBy(sel.value) || {}).model || 'text-embedding-3-small';
+    $('embKey').value = '';
+    $('embKey').placeholder = data.hasKey ? ('已配置：' + data.maskedKey + '（留空不改）') : '未配置';
+    $('embKeyHint').textContent = data.hasKey ? ('已配置：' + data.maskedKey + '；留空不修改。') : '还没有 key。key 只存在本机 config.json，不回传浏览器。';
+    $('embDim').value = data.dim || 0;
+    $('embMaxEntries').value = data.maxEntries || 300;
+    $('embUseSearch').value = data.useForSearch ? '1' : '0';
+    paintEmbProviderHint();
+    paintEmbLast(data.lastMode, data);
+  }
+  function paintEmbProviderHint() {
+    var p = embProviderBy($('embProvider').value) || {};
+    $('embProviderHint').textContent = p.hint || '';
+  }
+  function paintEmbLast(last, data) {
+    if (!last) {
+      $('embLast').textContent = '语义地图还没生成过；保存后会自动重建，或点「重建语义地图」。';
+      return;
+    }
+    var text;
+    if (last.mode === 'remote-embedding') {
+      text = '语义地图上次生成：远程 embedding · ' + (last.model || '?') + ' · ' + (last.dim || '?') + ' 维 · ' + (last.provider || 'openai-compatible') + (last.apiCalls ? '（本次请求 ' + last.apiCalls + ' 批）' : '（全部命中缓存）');
+    } else {
+      var why = last.reason && !/默认关闭/.test(last.reason) ? ' · ' + last.reason : '';
+      text = '语义地图上次生成：本地字面相似度（未接 embedding）' + why + '。页面会如实标注，不冒充语义结果。';
+    }
+    if (data && data.cacheCount) text += ' · 向量缓存 ' + data.cacheCount + ' 条';
+    $('embLast').textContent = text;
+  }
+  function embCollect() {
+    var body = {
+      enabled: $('embEnabled').value === '1',
+      provider: $('embProvider').value,
+      baseURL: $('embBaseURL').value.trim(),
+      model: $('embModel').value.trim(),
+      dim: Number($('embDim').value) || 0,
+      maxEntries: Number($('embMaxEntries').value) || 300,
+      useForSearch: $('embUseSearch').value === '1'
+    };
+    var key = $('embKey').value.trim();
+    if (key) body.apiKey = key;
+    return body;
+  }
+  $('embProvider').addEventListener('change', function () {
+    var p = embProviderBy($('embProvider').value) || {};
+    if (p.baseURL) $('embBaseURL').value = p.baseURL;
+    if (p.model) $('embModel').value = p.model;
+    paintEmbProviderHint();
+  });
+  $('embSave').addEventListener('click', function () {
+    embStatus('保存中…');
+    json('/api/settings/embedding', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(embCollect()) })
+      .then(function (data) {
+        paintEmbedding(data);
+        embStatus(data.configured ? '已保存；语义地图会自动重建（可能要走远程接口，稍等几秒）' : '已保存，但还没生效：地址 / 模型 / Key 没填全');
+      })
+      .catch(function (e) { embStatus('保存失败：' + e.message); });
+  });
+  $('embTest').addEventListener('click', function () {
+    embStatus('测试中…');
+    var body = embCollect();
+    json('/api/settings/embedding/test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (d) {
+        embStatus(d.ok ? ('可用 · ' + d.ms + 'ms · ' + d.model + ' · ' + d.dim + ' 维') : ('不可用：' + (d.error || '未知错误')));
+      })
+      .catch(function (e) { embStatus('测试失败：' + e.message); });
+  });
+  $('embRebuild').addEventListener('click', function () {
+    embStatus('重建中…');
+    json('/api/settings/embedding/rebuild', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      .then(function (d) {
+        json('/api/settings/embedding').then(paintEmbedding).catch(function () {});
+        var mode = d.embedding && d.embedding.mode === 'remote-embedding'
+          ? ('远程 embedding · ' + d.embedding.model + ' · ' + d.embedding.dim + ' 维')
+          : ('本地字面相似度 · ' + ((d.embedding && d.embedding.reason) || '未接 embedding'));
+        embStatus('已重建：' + mode);
+      })
+      .catch(function (e) { embStatus('重建失败：' + e.message); });
+  });
+  json('/api/settings/embedding').then(paintEmbedding).catch(function (e) { embStatus('读取失败：' + e.message); });
+  if (location.hash === '#embedding') {
+    var card = document.getElementById('embedding');
+    if (card) setTimeout(function () { card.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+  }
 })();
 </script>
 </body>

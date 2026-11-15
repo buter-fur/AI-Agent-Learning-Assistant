@@ -131,7 +131,8 @@
 
   var KB_MODES = [
     { id: 'tags', name: '标签网络', hint: '点一个标签：哪些知识用了它；两点相连＝常一起出现' },
-    { id: 'code', name: '代码地图', hint: '按来源文件聚团：这条知识是在改哪个文件时学到的' }
+    { id: 'code', name: '代码地图', hint: '按来源文件聚团：这条知识是在改哪个文件时学到的' },
+    { id: 'semantic', name: '语义地图', hint: '按向量远近排：接了远程 embedding 用真语义，没接就是本地字面相似度' }
   ];
 
   /* ── 主题 ─────────────────────────────────────────────── */
@@ -204,6 +205,7 @@
     kbQuery: '',
     kbPick: null,
     kbPickType: null,
+    kbLogCount: 0,
     kbLocate: null,
     kbLocateLoading: false,
     kbLocateError: null,
@@ -630,7 +632,6 @@
     var view = ['deck', 'quiz', 'map', 'line', 'kbmap'].indexOf(parts[0]) !== -1 ? parts[0] : 'deck';
     if (view === 'kbmap') {
       mode = ['semantic', 'tags', 'code'].indexOf(parts[1]) !== -1 ? parts[1] : null;
-      if (mode === 'semantic') mode = null; // 语义地图已移除（2026-11-14）
       if (parts[2]) { try { id = decodeURIComponent(parts[2]); } catch (err) { id = parts[2]; } }
     } else if (parts[1]) {
       try { id = decodeURIComponent(parts[1]); } catch (err) { id = parts[1]; }
@@ -2893,6 +2894,8 @@
     wrap.appendChild(tabs);
 
     wrap.appendChild(renderKbFilters());
+    wrap.appendChild(renderKbCacheStrip());
+    wrap.appendChild(el('div', { class: 'kb-embed-note', id: 'kb-embed-note' }));
 
     var layout = el('div', { class: 'tags-layout kb-layout' });
     var card = el('div', { class: 'tags-canvas-card kb-canvas-card' });
@@ -2909,6 +2912,7 @@
 
     window.requestAnimationFrame(function () {
       bindKbCanvas();
+      paintKbEmbedNote();
       renderKbSide();
       drawKbMap();
     });
@@ -2919,11 +2923,16 @@
     if (mode === 'semantic' && !state.kbmap && !state.kbmapLoading && !state.kbmapError) {
       state.kbmapLoading = true;
       fetch('/api/kb/map').then(function (r) {
-        if (!r.ok) throw new Error('语义地图数据还没生成（跑一次「一键更新知识库」）');
+        if (!r.ok) throw new Error('语义地图还没生成（知识缓存为空）');
         return r.json();
       }).then(function (data) {
+        if (!data || data.ok === false) throw new Error((data && data.error) || '没有语义地图数据');
         state.kbmap = data;
+        state.kbLogCount = Math.max(state.kbLogCount, Number(data.total) || 0);
         state.kbmapLoading = false;
+        paintKbCacheCount();
+        paintKbEmbedNote();
+        rerenderKbFilters();
         drawKbMap();
         renderKbSide();
       }).catch(function (err) {
@@ -2935,9 +2944,16 @@
     }
     if (mode === 'tags' && !state.tagsData && !state.tagsLoading && !state.tagsError) {
       state.tagsLoading = true;
-      fetch('/api/kb/tags').then(function (r) { return r.json(); }).then(function (data) {
+      fetch('/api/kb/tags').then(function (r) {
+        if (!r.ok) throw new Error('知识缓存还没生成（服务会自动建；点「管理知识缓存」可手动加）');
+        return r.json();
+      }).then(function (data) {
+        if (!data || data.ok === false) throw new Error((data && data.error) || '没有标签数据');
         state.tagsData = data;
+        state.kbLogCount = Number(data.total) || 0;
         state.tagsLoading = false;
+        paintKbCacheCount();
+        rerenderKbFilters();
         drawKbMap();
         renderKbSide();
       }).catch(function (err) {
@@ -2950,11 +2966,15 @@
     if (mode === 'code' && !state.codeMap && !state.codeMapLoading && !state.codeMapError) {
       state.codeMapLoading = true;
       fetch('/api/kb/code-map').then(function (r) {
-        if (!r.ok) throw new Error('代码地图数据还没生成（跑一次「一键更新知识库」）');
+        if (!r.ok) throw new Error('代码地图还没生成（知识缓存为空；先去「管理知识缓存」加几条）');
         return r.json();
       }).then(function (data) {
+        if (!data || data.ok === false) throw new Error((data && data.error) || '没有代码地图数据');
         state.codeMap = data;
+        state.kbLogCount = Math.max(state.kbLogCount, Number(data.total) || 0);
         state.codeMapLoading = false;
+        paintKbCacheCount();
+        rerenderKbFilters();
         drawKbMap();
         renderKbSide();
       }).catch(function (err) {
@@ -3030,6 +3050,291 @@
     var fresh = renderKbFilters();
     host.parentNode.replaceChild(fresh, host);
     drawKbMap();
+  }
+
+  /* ── 知识缓存管理（地图的数据源，不受 50 张卡上限） ──────────── */
+
+  var kbLogState = { items: [], counts: null, vocab: [], lanes: [], q: '', status: 'all', editing: null, note: '' };
+
+  var KB_STATUS_NAME = { active: '活跃', pending: '待展开', archived: '已归档' };
+  var KB_ORIGIN_NAME = { card: '卡片', history: '历史补卡', seed: '种子卡', manual: '手动', ingest: '入库' };
+
+  function renderKbCacheStrip() {
+    var count = state.kbLogCount;
+    return el('div', { class: 'kb-cache-strip' }, [
+      el('span', { class: 'kb-cache-strip-text', text: '知识缓存' + (count ? ' · ' + count + ' 条' : ' · 空') }),
+      el('button', { class: 'btn btn-quiet', type: 'button', on: { click: function () { openKbManager(); } } }, '管理知识缓存'),
+      el('button', { class: 'btn btn-quiet', type: 'button', on: { click: refreshKbMaps } }, '刷新地图'),
+      el('a', { class: 'kb-cache-strip-link', href: './settings.html#embedding', text: 'Embedding 设置' })
+    ]);
+  }
+
+  function paintKbCacheCount() {
+    var t = $('.kb-cache-strip-text');
+    if (t) t.textContent = '知识缓存' + (state.kbLogCount ? ' · ' + state.kbLogCount + ' 条' : ' · 空');
+  }
+
+  /* ── 语义地图：embedding 接没接，如实说清楚 ───────────────── */
+
+  function paintKbEmbedNote() {
+    var host = document.getElementById('kb-embed-note');
+    if (!host) return;
+    host.textContent = '';
+    if (state.kbmapMode !== 'semantic') { host.style.display = 'none'; return; }
+    host.style.display = '';
+    var em = state.kbmap && state.kbmap.embedding;
+    if (!em) {
+      host.className = 'kb-embed-note is-local';
+      host.appendChild(el('span', { text: '语义地图数据还没生成；生成后会在这里说明用的是哪种相似度。' }));
+      return;
+    }
+    if (em.mode === 'remote-embedding') {
+      host.className = 'kb-embed-note is-on';
+      host.appendChild(el('span', {
+        text: '语义地图：远程 embedding · ' + (em.model || '?') + ' · ' + (em.dim || '?') + ' 维 · ' +
+          (em.provider || 'openai-compatible') + (em.apiCalls ? '（本轮请求 ' + em.apiCalls + ' 批）' : '（缓存命中）')
+      }));
+    } else {
+      host.className = 'kb-embed-note is-local';
+      var why = em.reason && !/默认关闭/.test(em.reason) ? '（' + em.reason + '）' : '';
+      host.appendChild(el('span', { text: '未接 embedding：当前按本地字面相似度（bigram TF-IDF）排布，挨得近 ≠ 语义相近。' + why }));
+    }
+    host.appendChild(el('a', { href: './settings.html#embedding', text: em.mode === 'remote-embedding' ? '设置' : '去设置接一个 OpenAI 兼容接口 →' }));
+  }
+
+  /* ── 快捷跳转：知识条目 → 卡片 / 会话 ─────────────────────── */
+
+  function jumpToCard(cardId) {
+    if (!cardId) return;
+    var overlay = $('.kb-manager-modal');
+    if (overlay) overlay.remove();
+    go('#deck/' + encodeURIComponent(cardId));
+  }
+
+  function jumpToSession(source) {
+    var session = (source && source.session) || '';
+    if (!session) return;
+    openLocate({ session: session, quote: '' });
+  }
+
+  function kbJumpButtons(cardId, source, extraClass) {
+    var btns = [];
+    if (cardId) {
+      btns.push(el('button', {
+        class: 'btn btn-quiet ' + (extraClass || ''), type: 'button',
+        on: { click: function () { jumpToCard(cardId); } }
+      }, '看卡片'));
+    }
+    if (source && source.session) {
+      btns.push(el('button', {
+        class: 'btn btn-quiet ' + (extraClass || ''), type: 'button',
+        on: { click: function () { jumpToSession(source); } }
+      }, '回到现场'));
+    }
+    return btns;
+  }
+
+  function refreshKbMaps() {
+    state.tagsData = null; state.tagsError = null; state.tagsLoading = false;
+    state.codeMap = null; state.codeMapError = null; state.codeMapLoading = false;
+    state.kbmap = null; state.kbmapError = null; state.kbmapLoading = false;
+    kbView.tagsReady = false;
+    if (state.route.view === 'kbmap') {
+      ensureKbData(state.kbmapMode);
+      render();
+    } else {
+      ensureKbData(state.kbmapMode);
+      drawKbMap();
+      renderKbSide();
+    }
+  }
+
+  function openKbManager(keep) {
+    if (!keep) kbLogState = { items: [], counts: null, vocab: [], lanes: [], q: '', status: 'all', editing: null, note: '' };
+    var old = $('.kb-manager-modal');
+    if (old) old.remove();
+    var note = el('p', { class: 'kb-modal-note', id: 'kb-cache-note', text: '正在读知识缓存…' });
+    var list = el('div', { class: 'kb-cache-list', id: 'kb-cache-list' });
+    var search = el('input', {
+      class: 'kb-cache-search', type: 'search', value: kbLogState.q,
+      placeholder: '搜标题 / 一句话 / 标签 / 项目…',
+      on: {
+        input: function (ev) {
+          clearTimeout(search._t);
+          var v = ev.target.value.trim();
+          search._t = setTimeout(function () { kbLogState.q = v; fetchKbLog(); }, 260);
+        }
+      }
+    });
+    var statusSel = el('select', {
+      class: 'kb-cache-select',
+      on: { change: function (ev) { kbLogState.status = ev.target.value; fetchKbLog(); } }
+    }, [
+      el('option', { value: 'all', text: '全部状态' }),
+      el('option', { value: 'active', text: '活跃' }),
+      el('option', { value: 'pending', text: '待展开' }),
+      el('option', { value: 'archived', text: '已归档' })
+    ]);
+    statusSel.value = kbLogState.status;
+    var addBtn = el('button', {
+      class: 'btn btn-quiet', type: 'button',
+      on: { click: function () { kbLogState.editing = '__new__'; renderKbCacheList(); } }
+    }, '＋ 加一条');
+    var toolbar = el('div', { class: 'kb-cache-toolbar' }, [search, statusSel, addBtn]);
+    var closeBtn = el('button', { class: 'btn btn-quiet', type: 'button', on: { click: function () { overlay.remove(); } } }, '关闭');
+    var overlay = el('div', { class: 'kb-modal kb-manager-modal', role: 'dialog', 'aria-modal': 'true' }, [
+      el('div', { class: 'kb-modal-in kb-manager-in' }, [
+        el('div', { class: 'kb-modal-head' }, [el('b', { text: '知识缓存' }), closeBtn]),
+        el('p', { class: 'kb-modal-note', text: '知识地图的数据源。不受 50 张卡上限限制；卡片、历史补卡、种子卡会自动同步进来，也可以手动增删改。标签请从受控词表里选（用逗号分隔）。' }),
+        note, toolbar, list
+      ])
+    ]);
+    overlay.addEventListener('click', function (ev) { if (ev.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    fetchKbLog();
+  }
+
+  function fetchKbLog() {
+    var params = '?limit=500&status=' + encodeURIComponent(kbLogState.status) + '&q=' + encodeURIComponent(kbLogState.q);
+    fetch('/api/kb/log' + params).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) throw new Error((d && d.error) || '读不到知识缓存');
+      kbLogState.items = d.items || [];
+      kbLogState.counts = d.counts || null;
+      kbLogState.vocab = d.vocab || [];
+      kbLogState.lanes = d.lanes || [];
+      var c = d.counts || {};
+      var note = $('#kb-cache-note');
+      if (note) note.textContent = '共 ' + (c.all || 0) + ' 条 · 活跃 ' + (c.active || 0) + ' · 待展开 ' + (c.pending || 0) + ' · 已归档 ' + (c.archived || 0);
+      renderKbCacheList();
+    }).catch(function (err) {
+      var note = $('#kb-cache-note');
+      if (note) { note.textContent = '读不到知识缓存：' + String(err && err.message || err); note.className = 'kb-modal-note is-bad'; }
+    });
+  }
+
+  function renderKbCacheList() {
+    var list = $('#kb-cache-list');
+    if (!list) return;
+    list.textContent = '';
+    if (kbLogState.editing === '__new__') {
+      list.appendChild(kbLogEditRow(null));
+      return;
+    }
+    if (!kbLogState.items.length) {
+      list.appendChild(el('p', { class: 'kb-cache-empty', text: '还没有知识条目。点「加一条」手动加，或先去卡片流生成几张卡——服务会自动同步。' }));
+      return;
+    }
+    kbLogState.items.forEach(function (it) {
+      list.appendChild(kbLogState.editing === it.id ? kbLogEditRow(it) : kbLogRow(it));
+    });
+  }
+
+  function laneName(key) {
+    return KE_LANE[key] ? KE_LANE[key].name : key;
+  }
+
+  function kbLogRow(it) {
+    var meta = [
+      it.project || '未标注', laneName(it.lane),
+      it.tags.length ? it.tags.join(' · ') : '无标签',
+      KB_ORIGIN_NAME[it.origin] || it.origin
+    ].join(' ｜ ');
+    return el('div', { class: 'kb-cache-row' }, [
+      el('div', { class: 'kb-cache-row-head' }, [
+        el('b', { text: it.title }),
+        el('span', { class: 'kb-cache-badge' + (it.status !== 'active' ? ' is-' + it.status : ''), text: KB_STATUS_NAME[it.status] || it.status })
+      ]),
+      it.summary ? el('p', { class: 'kb-cache-summary', text: it.summary }) : null,
+      el('p', { class: 'kb-cache-meta', text: meta }),
+      el('div', { class: 'kb-cache-actions' }, [].concat(kbJumpButtons(it.cardId, it.source), [
+        el('button', { class: 'btn btn-quiet', type: 'button', on: { click: function () { kbLogState.editing = it.id; renderKbCacheList(); } } }, '编辑'),
+        el('button', {
+          class: 'btn btn-quiet', type: 'button',
+          on: { click: function () { setKbLogStatus(it, it.status === 'archived' ? 'active' : 'archived'); } }
+        }, it.status === 'archived' ? '恢复' : '归档'),
+        el('button', { class: 'btn btn-quiet is-danger', type: 'button', on: { click: function () { removeKbLog(it); } } }, '删除')
+      ]))
+    ]);
+  }
+
+  function kbLogEditRow(it) {
+    var isNew = !it;
+    var v = it || { title: '', summary: '', text: '', tags: [], project: '', lane: 'mechanism', status: 'active' };
+    var title = el('input', { class: 'kb-cache-input', value: v.title, placeholder: '标题（一句话说清是什么）' });
+    var summary = el('input', { class: 'kb-cache-input', value: v.summary, placeholder: '一句话结论（可选）' });
+    var tags = el('input', {
+      class: 'kb-cache-input', value: (v.tags || []).join('，'),
+      list: 'kb-vocab-options', placeholder: '标签，用逗号分隔（如：路径，进程）'
+    });
+    var project = el('input', { class: 'kb-cache-input', value: v.project === '未标注' ? '' : v.project, placeholder: '项目（可选）' });
+    var lane = el('select', { class: 'kb-cache-select' }, (kbLogState.lanes.length ? kbLogState.lanes : ['mechanism', 'syntax', 'algorithm', 'judgment']).map(function (k) {
+      return el('option', { value: k, text: laneName(k) });
+    }));
+    lane.value = v.lane || 'mechanism';
+    var status = el('select', { class: 'kb-cache-select' }, [
+      el('option', { value: 'active', text: '活跃' }),
+      el('option', { value: 'pending', text: '待展开' }),
+      el('option', { value: 'archived', text: '已归档' })
+    ]);
+    status.value = v.status || 'active';
+    var datalist = el('datalist', { id: 'kb-vocab-options' }, (kbLogState.vocab || []).map(function (t) {
+      return el('option', { value: t });
+    }));
+    var err = el('p', { class: 'kb-modal-note is-bad', style: 'display:none' });
+    function fail(msg) { err.textContent = msg; err.style.display = 'block'; }
+    function save() {
+      var payload = {
+        title: title.value.trim(), summary: summary.value.trim(),
+        tags: tags.value.split(/[，,、]/).map(function (s) { return s.trim(); }).filter(Boolean),
+        project: project.value.trim(), lane: lane.value, status: status.value
+      };
+      if (!payload.title) return fail('标题不能为空');
+      var url = isNew ? '/api/kb/log/add' : '/api/kb/log/update';
+      if (!isNew) payload.id = it.id;
+      fetch(url, {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload)
+      }).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d || !d.ok) throw new Error((d && d.error) || '保存失败');
+        kbLogState.editing = null;
+        fetchKbLog();
+        refreshKbMaps();
+      }).catch(function (e) { fail(String(e && e.message || e)); });
+    }
+    return el('div', { class: 'kb-cache-row is-editing' }, [
+      datalist,
+      el('div', { class: 'kb-cache-form' }, [title, summary, tags, project]),
+      el('div', { class: 'kb-cache-form kb-cache-form-row' }, [lane, status]),
+      err,
+      el('div', { class: 'kb-cache-actions' }, [
+        el('button', { class: 'btn btn-primary', type: 'button', on: { click: save } }, '保存'),
+        el('button', {
+          class: 'btn btn-quiet', type: 'button',
+          on: { click: function () { kbLogState.editing = null; renderKbCacheList(); } }
+        }, '取消')
+      ])
+    ]);
+  }
+
+  function setKbLogStatus(it, status) {
+    fetch('/api/kb/log/update', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ id: it.id, status: status })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) throw new Error((d && d.error) || '状态没改成');
+      fetchKbLog();
+      refreshKbMaps();
+    }).catch(function (e) { window.alert(String(e && e.message || e)); });
+  }
+
+  function removeKbLog(it) {
+    if (!window.confirm('删除「' + it.title + '」这条知识缓存？删除后知识地图会少这个点。')) return;
+    fetch('/api/kb/log/delete', {
+      method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id: it.id })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) throw new Error((d && d.error) || '删除失败');
+      fetchKbLog();
+      refreshKbMaps();
+    }).catch(function (e) { window.alert(String(e && e.message || e)); });
   }
 
   function kbItemMatches(item) {
@@ -3136,8 +3441,9 @@
   }
 
   function drawTagMap(ctx, cv) {
-    if (!state.tagsData) {
-      drawKbNotice(ctx, cv, state.tagsLoading ? '正在算标签网络…' : (state.tagsError || '没有标签数据'));
+    if (!state.tagsData || !tagNodes().length) {
+      var msg = state.tagsLoading ? '正在算标签网络…' : (state.tagsError || '知识缓存还是空的：先在「管理知识缓存」里加几条');
+      drawKbNotice(ctx, cv, msg);
       return;
     }
     layoutTagNodes();
@@ -3209,9 +3515,16 @@
     });
   }
 
+  function baseName(p) {
+    var parts = String(p || '').split(/[\\/]/).filter(Boolean);
+    return parts.length ? parts[parts.length - 1] : String(p || '');
+  }
+
   function drawCodeMap(ctx, cv) {
-    if (!state.codeMap) {
-      drawKbNotice(ctx, cv, state.codeMapLoading ? '正在按文件聚类…' : (state.codeMapError || '没有代码地图数据'));
+    if (!state.codeMap || (!(state.codeMap.files || []).length && !(state.codeMap.unlocated || []).length)) {
+      var msg = state.codeMapLoading ? '正在按文件聚类…'
+        : (state.codeMapError || '知识缓存还是空的：先在「管理知识缓存」里加几条');
+      drawKbNotice(ctx, cv, msg);
       return;
     }
     var W = cv.width, H = cv.height;
@@ -3269,7 +3582,7 @@
         kbView.code.push({ kind: 'entry', id: e.id, x: x, y: y, r: 5, title: e.title });
       });
 
-      var fullName = f.path.split('/').pop() || f.path;
+      var fullName = baseName(f.path);
       var proj = f.project || '未定位';
       ctx.font = '10.5px "PingFang SC", sans-serif';
       var maxW = Math.max(40, cellW - 10);
@@ -3461,7 +3774,7 @@
         class: 'kb-file-row', type: 'button',
         on: { click: function () { state.kbPick = f.path; state.kbPickType = 'file'; renderKbSide(); } }
       }, [
-        el('b', { text: f.path.split('/').pop() }),
+        el('b', { text: baseName(f.path) }),
         el('span', { text: (f.entries || []).length + ' 条 · ' + (f.project || '未定位') })
       ]));
     });
@@ -3472,7 +3785,7 @@
     var f = files.find(function (x) { return x.path === path; });
     if (!f) return renderKbSide(side);
     side.appendChild(el('div', { class: 'tags-side-head' }, [
-      el('h2', { class: 'tags-side-title', text: f.path.split('/').pop() }),
+      el('h2', { class: 'tags-side-title', text: baseName(f.path) }),
       el('button', { class: 'btn btn-quiet', type: 'button', on: { click: function () { state.kbPick = null; renderKbSide(); } } }, '返回')
     ]));
     side.appendChild(el('p', { class: 'tags-side-src', text: f.path }));
@@ -3502,16 +3815,20 @@
     if (node.path) meta.push(node.path);
     if (meta.length) side.appendChild(el('p', { class: 'tags-side-src', text: meta.join(' · ') }));
 
-    side.appendChild(el('div', { class: 'kb-detail-actions' }, [
-      el('button', {
-        class: 'btn btn-quiet', type: 'button',
-        on: { click: function () { loadKbText(side, node, id); } }
-      }, '看全文'),
-      el('button', {
-        class: 'btn btn-quiet', type: 'button',
-        on: { click: function () { locateFromEntry(id); } }
-      }, '回到现场')
-    ]));
+    var actions = [];
+    if (node.cardId) actions.push(el('button', {
+      class: 'btn btn-quiet', type: 'button',
+      on: { click: function () { jumpToCard(node.cardId); } }
+    }, '看卡片'));
+    actions.push(el('button', {
+      class: 'btn btn-quiet', type: 'button',
+      on: { click: function () { loadKbText(side, node, id); } }
+    }, '看全文'));
+    actions.push(el('button', {
+      class: 'btn btn-quiet', type: 'button',
+      on: { click: function () { locateFromEntry(id); } }
+    }, '回到现场'));
+    side.appendChild(el('div', { class: 'kb-detail-actions' }, actions));
 
     var body = el('div', { class: 'kb-detail-body', id: 'kb-detail-body' });
     side.appendChild(body);
@@ -3598,6 +3915,18 @@
   function renderTagSide(side) {
     var focus = state.kbPickType === 'tags' ? state.kbPick : null;
     if (!focus) {
+      if (!tagNodes().length) {
+        side.appendChild(el('h2', { class: 'tags-side-title', text: state.tagsError ? '标签网络没出来' : '知识缓存还是空的' }));
+        side.appendChild(el('p', {
+          class: 'tags-side-note',
+          text: state.tagsError || '地图读的是本地知识缓存，不依赖本地模型。服务会从卡片/历史卡/种子卡自动同步；也可以手动加一条。'
+        }));
+        side.appendChild(el('button', {
+          class: 'btn btn-quiet', type: 'button',
+          on: { click: function () { openKbManager(); } }
+        }, '管理知识缓存'));
+        return;
+      }
       side.appendChild(el('h2', { class: 'tags-side-title', text: '点一个标签' }));
       side.appendChild(el('p', { class: 'tags-side-note', text: '右侧会列出用了这个标签的条目。点连线上的点也行。' }));
       var top = tagNodes().slice().sort(function (a, b) { return b.n - a.n; }).slice(0, 8);
@@ -3659,12 +3988,14 @@
       if (sum) side.appendChild(el('p', { class: 'tags-side-note', text: sum }));
       if (body) side.appendChild(el('p', { class: 'tags-side-body', text: body }));
       if (meta.source) side.appendChild(el('p', { class: 'tags-side-src', text: meta.source }));
-      if (meta.source) {
+      var jumps = kbJumpButtons(meta.cardId, { session: meta.session });
+      if (jumps.length) side.appendChild(el('div', { class: 'kb-detail-actions' }, jumps));
+      if (meta.session || meta.source) {
         side.appendChild(el('div', { class: 'kb-detail-actions' }, [
           el('button', {
             class: 'btn btn-quiet', type: 'button',
             on: { click: function () { locateFromEntry(id); } }
-          }, '回到现场')
+          }, '看现场原文')
         ]));
       }
     }).catch(function () {

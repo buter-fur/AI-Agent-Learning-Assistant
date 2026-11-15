@@ -266,3 +266,112 @@ DSH 桌面版没有「按 seq 跳到某条消息」的深链；`dsh-session:` �
 
 报告结构：`{week:{key,start,end}, stats:{cards,quizzes,correct,wrong,newCards}, cards:[…], tags:{nodes,links}, show, empty}`。
 前端在 `loadData` 后请求一次；`show=true` 时弹「上周温故」，默认开启温故模式（显示卡片 + 标签网络），关闭后本周不再弹。
+
+---
+
+## 9. v2.2（2026-11-15）：知识缓存（本地轻量知识库）
+
+> 背景：知识地图原来只读 `data/kb-*.json`，而这三个文件由仓库外的 Chroma + embedding 管线生成，没有本地模型的用户永远为空。现在用 SQLite + 确定性算法在本地生成，卡片只是来源之一。
+
+### 9.1 `kb_log` 表
+
+```sql
+CREATE TABLE kb_log (
+  id TEXT PRIMARY KEY,
+  card_id TEXT,
+  origin TEXT,              -- card | history | seed | manual | ingest
+  title TEXT, summary TEXT, text TEXT,
+  lane TEXT, project TEXT,
+  tags_json TEXT,           -- 受控词表内的标签
+  quotes_json TEXT,         -- 逐字引文（来自卡片 source.quotes / 种子 quote）
+  source_json TEXT,         -- {project, session, time, origin}
+  files_json TEXT,          -- 代码地图：来源文件（自动探测后回写）
+  status TEXT,              -- active | pending | archived
+  confidence TEXT, created_at INTEGER, updated_at INTEGER
+);
+```
+
+规则：
+
+- **不受 50 张卡上限约束**；卡片、历史补卡（含因上限被拒的）、种子卡（`pending`，展开后升级 `active`）都会写进来。
+- 只增不改：卡片内容变化不会覆盖用户手动改过的缓存条目；用户可在卡片站里编辑/归档/删除。
+- 生成物：`data/kb-tags.json`、`data/kb-code-map.json`、`data/kb-map.json` + `data/kb-map.stamp.json`（签名，避免每次请求重建）。
+
+### 9.2 新接口
+
+| 接口 | 说明 |
+|---|---|
+| `GET /api/kb/tags` | 标签网络：`{total, nodes:[{id,n,p,c}], links:[{s,t,w}], byTag:{tag:[{id,title}]}}` |
+| `GET /api/kb/code-map` | 代码地图：`{total, files:[{path,project,entries:[{id,title,lane,project,summary}]}], unlocated:[…]}` |
+| `GET /api/kb/map` | 语义地图：`{total, nodes:[{id,title,summary,lane,project,x,y,v[64]}]}` |
+| `GET /api/kb/item?id=` | 知识库服务优先；服务不在时回退到 `kb_log`，返回 `{ok,title,summary,text,document,meta,quotes,tags}` |
+| `GET /api/kb/log?q=&status=&tag=&project=&limit=&offset=` | 管理列表：`{ok,total,counts:{all,active,pending,archived},vocab,lanes,items:[…]}` |
+| `POST /api/kb/log/update` | `{id,title?,summary?,text?,tags?,project?,lane?,status?}`；标签会归一到受控词表 |
+| `POST /api/kb/log/delete` | `{id}` |
+| `POST /api/kb/log/add` | `{title,summary?,text?,tags?,project?,lane?}`，手动新增 |
+| `POST /api/kb/log/sync` | 把卡片表补同步进 `kb_log` 并强制重建地图 |
+
+### 9.3 算法口径（全部零模型、零网络）
+
+- 标签：`standards/tag-map.json` 的 canon + `tag_rules.py` 规则；最多 5 个，空则按线给一个兜底标签。
+- 代码地图：拿缓存条目的引文回查 `$DSH_HOME/sessions` 日志，先找引文命中的工具参数（`write`/`edit` 优先），再找同轮次最近一次编辑；找不到归入「未定位到文件」。
+- 语义地图：中文字符 bigram TF-IDF → 64 维哈希向量 → 幂迭代 PCA 降到 2D（坐标归一化到 0.08–0.92）。
+- 检索兜底：同一份缓存的 bigram 加权覆盖打分（标题 3 / 摘要与标签 2 / 正文 1），分数仍是 0–1，沿用现有 0.60 弹出、0.35 灰区阈值。
+
+---
+
+## 10. v2.3（2026-11-15）：远程 Embedding 提供商接口（可选）
+
+> 语义地图和检索可以接远程 embedding；**不接也能用**，页面上会明确写「本地字面相似度 / 未接 embedding」，不冒充语义结果。
+
+### 10.1 只约定一种协议：OpenAI 兼容
+
+```
+POST {baseURL}/embeddings
+Authorization: Bearer <apiKey>
+{ "model": "<model>", "input": ["文本1", "文本2"], "encoding_format": "float" }
+
+→ { "data": [{ "index": 0, "embedding": [0.1, ...] }, ...], "model": "..." }
+```
+
+- 预设：`openai-compatible`（OpenAI 默认地址/模型）、`siliconflow`、`dashscope` 兼容模式、`custom`（自填）。
+- 换成别家只需要改 `baseURL + model + apiKey`，不改代码；要加新协议在 `app/src/embed.mjs` 里加一个请求/解析函数即可。
+
+### 10.2 配置（`config.json`，也可在设置页改）
+
+```jsonc
+"embedding": {
+  "enabled": false,             // 不开就完全本地、不联网
+  "provider": "openai-compatible",
+  "baseURL": "https://api.openai.com/v1",
+  "model": "text-embedding-3-small",
+  "apiKey": "",                 // 只存本地；接口只回脱敏值
+  "dim": 0,                     // 0 = 服务端决定；填了会做维度校验
+  "timeoutMs": 10000,
+  "batchSize": 64,
+  "maxChars": 1800,
+  "maxEntries": 300,            // 条目超上限就不做远程 embedding（费用闸门）
+  "useForSearch": false         // 实时检索是否也用 embedding（每次查询多一次小请求）
+}
+```
+
+环境变量可覆盖：`EMBEDDING_API_KEY` / `OPENAI_EMBEDDING_API_KEY`、`EMBEDDING_BASE_URL`、`EMBEDDING_MODEL`。
+
+### 10.3 接口
+
+| 接口 | 说明 |
+|---|---|
+| `GET /api/settings/embedding` | 脱敏配置 + 上次语义地图模式（`lastMode`）+ 向量缓存条数 + 预设列表 |
+| `POST /api/settings/embedding` | 保存（key 留空不改；`clearKey` 清空）；保存后后台强制重建语义地图 |
+| `POST /api/settings/embedding/test` | 用当前表单/已存配置发一次最小请求，返回 `{ok, ms, dim, model}` 或错误原因 |
+| `POST /api/settings/embedding/rebuild` | 强制重建三份地图，返回 `maps` 和 `kb-map.json` 里的 `embedding` |
+
+### 10.4 缓存与诚实回退
+
+- 向量缓存在 `data/embeddings.json`，key = `sha256(model + "\u0000" + 文本)`；命中缓存不发请求，最多保留 4000 条，超出丢最旧的。
+- `kb-map.json` 必须带 `embedding` 字段：
+  - `{ "mode": "remote-embedding", "provider", "model", "dim", "apiCalls", "cached", "useForSearch" }`
+  - `{ "mode": "local-tfidf", "reason": "远程 embedding 未启用（默认关闭）" | "地址/模型/Key 没填全" | "超过 maxEntries" | "远程 embedding 不可用，已回退本地字面相似度：<错误>" }`
+- 前端语义地图页读这个字段：接了显示 `远程 embedding · model · dim 维`，没接显示「本地字面相似度，挨得近 ≠ 语义相近」，并给设置页入口。
+- 检索兜底：`kb.mjs` → `localSearchAsync()`；`useForSearch=false` 或未配置或请求失败时，自动退回 `localSearch()` 关键词打分，实时链路不阻塞、阈值不变。
+- 语义向量存 `v` 时超过 128 维也做确定性随机投影，避免大模型 1024/1536 维把 JSON 撑大；最近邻在这份投影上算，近似保持余弦。

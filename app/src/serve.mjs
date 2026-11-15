@@ -19,6 +19,8 @@ import { scanHistory, listHistory, importGenerated as importHistory, recordProce
 import { loadConfig, maskKey, check } from "./llm.mjs";
 import { enqueueSeed, seedItem, expandSeed, pruneSeeds, seedPromptFor, importSeedData } from "./seed.mjs";
 import { weekly, markSeen } from "./weekly.mjs";
+import { ensureKbMaps, kbItemFromLog, listKbLog, updateKbLog, deleteKbLog, addKbLog, syncCardsToKbLog, invalidateKbStamp } from "./kbmap.mjs";
+import { EMBEDDING_PROVIDERS, publicEmbeddingConfig, testEmbedding } from "./embed.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PUBLIC = path.join(ROOT, "public");
@@ -160,6 +162,27 @@ async function main() {
   loadQueue();
   pruneSeeds(db);
   ensureColumn(db, "card", "examples_json", "examples_json TEXT NOT NULL DEFAULT '[]'");
+  // 本地知识缓存与知识地图：不依赖模型/网络，启动时补齐一次；签名变了下次请求再重建。
+  try {
+    const kb = await ensureKbMaps(db);
+    if (kb.built) {
+      console.log(`知识缓存 ${kb.entries || 0} 条 · 标签 ${kb.tags || 0} 个 · 来源文件 ${kb.files || 0} 个`);
+    }
+  } catch (e) {
+    console.error("知识缓存初始化失败（不挡卡片站）:", e && e.message ? e.message : e);
+  }
+
+  /** 读地图 JSON；没有就让本地知识缓存现建一份（签名不变时不会重复算）。 */
+  async function serveKbMapFile(res, file, missError) {
+    try {
+      await ensureKbMaps(db);
+    } catch (e) {
+      console.error("知识地图重建失败:", e && e.message ? e.message : e);
+    }
+    const f = path.join(ROOT, "data", file);
+    if (!fs.existsSync(f)) return send(res, 404, JSON.stringify({ ok: false, error: missError, local: true }));
+    return send(res, 200, fs.readFileSync(f));
+  }
   let exampleBudget = 20;
   let port = Number(arg("--port", 4780));
   const host = arg("--host", "127.0.0.1");
@@ -334,14 +357,10 @@ async function main() {
         return send(res, 200, JSON.stringify({ ok: true }));
       }
       if (p === "/api/kb/map") {
-        const f = path.join(ROOT, "data", "kb-map.json");
-        if (!fs.existsSync(f)) return send(res, 404, JSON.stringify({ ok: false, error: "no map data" }));
-        return send(res, 200, fs.readFileSync(f));
+        return serveKbMapFile(res, "kb-map.json", "no map data");
       }
       if (p === "/api/kb/code-map") {
-        const f = path.join(ROOT, "data", "kb-code-map.json");
-        if (!fs.existsSync(f)) return send(res, 404, JSON.stringify({ ok: false, error: "no code-map data" }));
-        return send(res, 200, fs.readFileSync(f));
+        return serveKbMapFile(res, "kb-code-map.json", "no code-map data");
       }
       if (p === "/api/whisper/queue" && req.method === "GET") {
         return send(res, 200, JSON.stringify({ mode: settings.notifyMode, items: queue.map(mini) }));
@@ -507,6 +526,71 @@ async function main() {
           return send(res, 200, JSON.stringify({ ok: false, error: String(e.message || e) }));
         }
       }
+      if (p === "/api/settings/embedding" && req.method === "GET") {
+        return send(res, 200, JSON.stringify(publicEmbeddingConfig()));
+      }
+      if (p === "/api/settings/embedding" && req.method === "POST") {
+        const b = await readBody(req);
+        const allowed = new Set(EMBEDDING_PROVIDERS.map((x) => x.id));
+        const prevRaw = (() => { try { return JSON.parse(fs.readFileSync(path.join(ROOT, "config.json"), "utf8")); } catch { return {}; } })();
+        const emb = { ...(prevRaw.embedding && typeof prevRaw.embedding === "object" ? prevRaw.embedding : {}) };
+        if (b.provider != null) {
+          if (!allowed.has(String(b.provider))) return send(res, 400, JSON.stringify({ ok: false, error: "未知的 embedding 提供商" }));
+          emb.provider = String(b.provider);
+        }
+        if (b.enabled != null) emb.enabled = !!b.enabled;
+        if (b.baseURL != null) {
+          const baseURL = String(b.baseURL).trim().replace(/\/+$/, "");
+          if (baseURL && !/^https?:\/\//i.test(baseURL)) {
+            return send(res, 400, JSON.stringify({ ok: false, error: "API 地址要以 http:// 或 https:// 开头" }));
+          }
+          emb.baseURL = baseURL;
+        }
+        if (b.model != null) emb.model = String(b.model).trim().slice(0, 120);
+        if (b.apiKey != null && String(b.apiKey).trim()) emb.apiKey = String(b.apiKey).trim();
+        if (b.clearKey) emb.apiKey = "";
+        if (b.dim != null) {
+          const dim = Number(b.dim);
+          if (!Number.isFinite(dim) || dim < 0 || dim > 4096) return send(res, 400, JSON.stringify({ ok: false, error: "dim 要在 0–4096" }));
+          emb.dim = dim;
+        }
+        if (b.timeoutMs != null) {
+          const n = Number(b.timeoutMs);
+          if (!Number.isFinite(n) || n < 1500 || n > 60000) return send(res, 400, JSON.stringify({ ok: false, error: "超时要在 1500–60000ms" }));
+          emb.timeoutMs = n;
+        }
+        if (b.batchSize != null) {
+          const n = Number(b.batchSize);
+          if (!Number.isFinite(n) || n < 1 || n > 128) return send(res, 400, JSON.stringify({ ok: false, error: "批量大小要在 1–128" }));
+          emb.batchSize = n;
+        }
+        if (b.maxEntries != null) {
+          const n = Number(b.maxEntries);
+          if (!Number.isFinite(n) || n < 1 || n > 5000) return send(res, 400, JSON.stringify({ ok: false, error: "条目上限要在 1–5000" }));
+          emb.maxEntries = n;
+        }
+        if (b.useForSearch != null) emb.useForSearch = !!b.useForSearch;
+        saveSettings({ embedding: emb });
+        invalidateKbStamp();
+        // 配置变了就后台重建语义地图；不阻塞保存（可能要走远程接口）。
+        ensureKbMaps(db, { force: true }).catch((e) => console.error("embedding 重建失败:", e && e.message ? e.message : e));
+        return send(res, 200, JSON.stringify(publicEmbeddingConfig()));
+      }
+      if (p === "/api/settings/embedding/test" && req.method === "POST") {
+        const b = await readBody(req).catch(() => ({}));
+        const r = await testEmbedding(b || {});
+        return send(res, 200, JSON.stringify(r));
+      }
+      if (p === "/api/settings/embedding/rebuild" && req.method === "POST") {
+        invalidateKbStamp();
+        const counts = await ensureKbMaps(db, { force: true });
+        let embedding = null;
+        try {
+          const map = JSON.parse(fs.readFileSync(path.join(ROOT, "data", "kb-map.json"), "utf8"));
+          embedding = map.embedding || null;
+        } catch { /* 没有就算了 */ }
+        return send(res, 200, JSON.stringify({ ok: true, maps: counts, embedding }));
+      }
       if (p === "/api/card/learn" && req.method === "POST") {
         const b = await readBody(req);
         const row = db.prepare("SELECT concept_id FROM card WHERE id=?").get(b.cardId);
@@ -566,14 +650,43 @@ async function main() {
         }
       }
       if (p === "/api/kb/tags") {
-        const f = path.join(ROOT, "data", "kb-tags.json");
-        if (!fs.existsSync(f)) return send(res, 404, JSON.stringify({ ok: false, error: "no tags data" }));
-        return send(res, 200, fs.readFileSync(f));
+        return serveKbMapFile(res, "kb-tags.json", "no tags data");
+      }
+      if (p === "/api/kb/log" && req.method === "GET") {
+        const sp = url.searchParams;
+        const list = listKbLog(db, {
+          q: sp.get("q") || "", status: sp.get("status") || "all",
+          tag: sp.get("tag") || "", project: sp.get("project") || "",
+          limit: sp.get("limit"), offset: sp.get("offset")
+        });
+        return send(res, 200, JSON.stringify(list));
+      }
+      if (p === "/api/kb/log/update" && req.method === "POST") {
+        const b = await readBody(req);
+        const r = updateKbLog(db, b);
+        return send(res, r.ok ? 200 : (r.error === "没有这条缓存" ? 404 : 400), JSON.stringify(r));
+      }
+      if (p === "/api/kb/log/delete" && req.method === "POST") {
+        const b = await readBody(req);
+        const r = deleteKbLog(db, b.id);
+        return send(res, r.ok ? 200 : 404, JSON.stringify(r));
+      }
+      if (p === "/api/kb/log/add" && req.method === "POST") {
+        const b = await readBody(req);
+        const r = addKbLog(db, b);
+        return send(res, r.ok ? 200 : 400, JSON.stringify(r));
+      }
+      if (p === "/api/kb/log/sync" && req.method === "POST") {
+        const synced = syncCardsToKbLog(db);
+        const maps = await ensureKbMaps(db, { force: true }).catch(() => ({}));
+        return send(res, 200, JSON.stringify({ ok: true, ...synced, maps }));
       }
       if (p.startsWith("/api/kb/item")) {
         const id = new URL(req.url, "http://x").searchParams.get("id");
-        const it = await kbItem(id);
-        return send(res, it ? 200 : 404, JSON.stringify(it || { ok: false }));
+        const remote = await kbItem(id).catch(() => null);
+        if (remote) return send(res, 200, JSON.stringify(remote));
+        const local = kbItemFromLog(db, id);
+        return send(res, local ? 200 : 404, JSON.stringify(local || { ok: false }));
       }
       if (p === "/api/health") {
         const judge = await judgeHealth().catch(() => ({ enabled: true, up: false }));

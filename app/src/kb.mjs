@@ -4,6 +4,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { localSearchAsync, localSearchReady } from "./kbmap.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DEFAULTS = {
@@ -55,7 +56,11 @@ async function call(pathname, body, timeoutMs) {
 export async function search(query, k = 5) {
   const c = cfg();
   const data = await call("/search", { query, k }, c.timeoutMs);
-  return (data && data.items) || [];
+  if (data && Array.isArray(data.items)) return data.items;
+  // 没有知识库服务（大多数没装本地模型的用户）：退回本地知识缓存。
+  // 如果设置页开了「检索也用远程 embedding」，这里优先用向量，失败自动退回关键词。
+  if (localSearchReady()) return localSearchAsync(query, k);
+  return [];
 }
 
 export async function item(id) {

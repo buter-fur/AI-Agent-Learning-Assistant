@@ -63,7 +63,9 @@ export function weekly(db, { force = false, now = new Date() } = {}) {
   const enabled = now.getTime() >= ENABLED_FROM.getTime();
 
   let tagMap = { canon: [], map: {} };
-  try { tagMap = JSON.parse(fs.readFileSync(path.join(ROOT, "..", "tools", "tag-map.json"), "utf8")); } catch {}
+  for (const f of [path.join(ROOT, "..", "standards", "tag-map.json"), path.join(ROOT, "..", "tools", "tag-map.json")]) {
+    try { tagMap = JSON.parse(fs.readFileSync(f, "utf8")); break; } catch { /* 试下一个 */ }
+  }
   const canon = new Set(tagMap.canon || []);
   const map = tagMap.map || {};
 
