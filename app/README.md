@@ -19,6 +19,13 @@ node src/serve.mjs --open
 
 **设置页**：`http://127.0.0.1:4780/settings.html`，不依赖 DSH 插件也能填 API、模型、优先级和回溯范围。
 
+## Windows
+
+- 双击 `启动学习小助手.bat`；或在该目录执行 `node src\serve.mjs --open`。
+- 需要 Node.js ≥ 22.13；`chcp 65001` 已在 .bat 里设置，避免中文输出乱码。
+- 不需要 Python、Chroma 或 zstd 才能启动卡片站；知识库/本地模型是可选增强。
+- 配置入口：`http://127.0.0.1:4780/settings.html`。
+
 ## 数据与隐私
 
 仓库**不包含**个人会话日志、卡片数据库、知识库正文、API Key。运行时生成的文件都在 `data/`，已被 `.gitignore` 排除。

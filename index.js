@@ -43,7 +43,9 @@ const DEFAULT_APP_DIR = fs.existsSync(path.join(LOCAL_APP_DIR, "src", "serve.mjs
 	? LOCAL_APP_DIR
 	: REPO_APP_DIR;
 const DEFAULT_KB_DIR = path.join(process.env.HOME || os.homedir(), "rag");
-const DEFAULT_OLLAMA_BIN = "/opt/homebrew/bin/ollama";
+const DEFAULT_OLLAMA_BIN = process.platform === "win32"
+	? path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), "AppData", "Local"), "Programs", "Ollama", "ollama.exe")
+	: "/opt/homebrew/bin/ollama";
 
 /** 用本地 HTTP 探活，失败/超时都返回 null。 */
 async function probeJson(url, timeoutMs = 1000) {
@@ -365,7 +367,9 @@ function apply(ctx, config) {
 	async function ensureKb() {
 		const health = await probeJson("http://127.0.0.1:8790/health", 1400);
 		if (health && health.ok === true) return;
-		const python = path.join(kbDir, ".venv", "bin", "python");
+		const python = process.platform === "win32"
+			? path.join(kbDir, ".venv", "Scripts", "python.exe")
+			: path.join(kbDir, ".venv", "bin", "python");
 		const script = path.join(kbDir, "kb_server.py");
 		if (!fs.existsSync(python) || !fs.existsSync(script)) return;
 		kbChild = spawnTracked(python, [script], kbDir, "kb-server");
