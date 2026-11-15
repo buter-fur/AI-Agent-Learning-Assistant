@@ -15,7 +15,7 @@ cp config.example.json config.json
 node src/serve.mjs --open
 ```
 
-默认地址 `http://127.0.0.1:4780`。没有卡片数据时会加载 `public/mock.json` 的合成示例；服务首次启动会在 `data/cards.db` 自动建空库。
+默认地址 `http://127.0.0.1:4780`。示例配置默认 `thinking: {type: "disabled"}`，避免部分账号只回思考、不给正文；换非 DeepSeek 端点时删掉这个字段。没有卡片数据时会加载 `public/mock.json` 的合成示例；服务首次启动会在 `data/cards.db` 自动建空库。
 
 **设置页**：`http://127.0.0.1:4780/settings.html`，不依赖 DSH 插件也能填 API、模型、优先级和回溯范围。
 

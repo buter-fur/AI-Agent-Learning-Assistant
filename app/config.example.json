@@ -24,5 +24,8 @@
     "mode": "turns",
     "turns": 8,
     "days": 7
+  },
+  "thinking": {
+    "type": "disabled"
   }
 }

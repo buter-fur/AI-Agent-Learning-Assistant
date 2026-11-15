@@ -30,6 +30,7 @@ export function loadConfig() {
     jsonMode: cfg.jsonMode !== false,
     temperature: cfg.temperature != null ? Number(cfg.temperature) : 0.4,
     maxTokens: Number(cfg.maxTokens || 4096),
+    thinking: cfg.thinking && typeof cfg.thinking === "object" ? cfg.thinking : null,
     file: CONFIG_FILE
   };
 }
@@ -53,6 +54,7 @@ export async function chat(messages, cfg = loadConfig(), opts = {}) {
     max_tokens: opts.maxTokens || cfg.maxTokens || 4096
   };
   if (cfg.jsonMode && opts.json !== false) body.response_format = { type: "json_object" };
+  if (cfg.thinking) body.thinking = cfg.thinking;
 
   let lastErr;
   for (let attempt = 0; attempt <= cfg.retries; attempt++) {
