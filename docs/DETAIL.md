@@ -28,7 +28,7 @@
 
 - 卡片站 `app/src/serve.mjs`（4780）
 - 知识库 `~/rag/kb_server.py`（8790）
-- 本地 `ollama serve`（仅当 `localJudge.enabled` 且配置了可执行文件；模型按需加载；没填 API 时也负责历史补课）
+- 本地 `ollama serve`（可选；仅当 `localJudge.enabled` 且配置了可执行文件；模型按需加载；没填 API 时也负责历史补课）。没有本地模型时，灰区判定自动用设置里的 API 做小请求。
 
 启动日志在 `app/data/auto-start.log`。插件停用/卸载时只停自己拉起的进程，原本手动开着的服务不受影响。**不要同时跑 watch.mjs**，否则同一信号会送两遍。
 

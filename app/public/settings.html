@@ -50,7 +50,7 @@
 <main class="settings-wrap">
   <section class="settings-card">
     <h1>模型与回溯</h1>
-    <p class="settings-intro">这里不依赖 DSH 插件：卡片站单独打开也能配置。留空 API Key 不会覆盖已保存的 key；没有 key 时，历史补课会尝试本地 Ollama，种子卡交给 DSH 内置模型。</p>
+    <p class="settings-intro">这里不依赖 DSH 插件：卡片站单独打开也能配置。留空 API Key 不会覆盖已保存的 key；没有本地模型时，灰区判定会用这里的 API 做一次很小的判定，历史补课/种子卡也优先走 API。</p>
 
     <div class="settings-field">
       <label for="baseURL">API 地址</label>
@@ -131,7 +131,7 @@
     $('lookbackValue').value = lb.mode === 'days' ? (lb.days || 7) : (lb.turns || 8);
     paintLookback();
     var local = data.local || {};
-    $('localNote').textContent = '本地模型：' + (local.up ? ('在跑 · ' + (local.model || '?')) : '没起') + ' · API：' + (data.hasKey ? '已配置' : '未配置');
+    $('localNote').textContent = '本地模型：' + (local.up ? ('在跑 · ' + (local.model || '?')) : '没起') + ' · API：' + (data.hasKey ? '已配置' : '未配置') + ' · 灰区判定：' + (local.up ? '本地模型优先' : (data.hasKey ? '云端小判定' : '无模型'));
   }
   function paintLookback() {
     var days = $('lookbackMode').value === 'days';

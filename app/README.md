@@ -5,7 +5,7 @@
 ## 需要
 
 - Node.js **≥ 22.13**（使用内置 `node:sqlite`）
-- 可选：本地 Ollama（灰区判定 / 本地生成）、Chroma 知识库服务（`~/rag/kb_server.py`，8790）
+- 可选：本地 Ollama（灰区判定 / 本地生成）、Chroma 知识库服务（`~/rag/kb_server.py`，8790）。没有本地模型也可以：示例配置默认关闭本地模型，灰区判定会自动改用设置里的 API 做小请求；有 Ollama 时把 `localJudge.enabled` 改 `true`。
 
 ## 启动
 

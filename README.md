@@ -23,7 +23,7 @@
 
 - 卡片站：`app/src/serve.mjs`（本地开发时也会自动找 `../学习小助手/app`），默认 `127.0.0.1:4780`
 - 知识库：`~/rag/kb_server.py`，默认 `127.0.0.1:8790`
-- 本地 27B（可选，灰区判定；没填 API 时也负责历史补课）：若 `config.localJudge.enabled` 且系统里有 `/opt/homebrew/bin/ollama`，会自动拉起 `ollama serve`；模型按需加载。
+- 本地 27B（可选，灰区判定；没填 API 时也负责历史补课）：若 `config.localJudge.enabled` 且系统里有 ollama，会自动拉起 `ollama serve`；模型按需加载。没有本地模型时，灰区判定自动改用设置里的 API 做小请求。
 
 插件停用/卸载时会停掉**它自己拉起**的进程；原本已经由你手动开着的服务不会被杀掉。启动日志在 `app/data/auto-start.log`。
 
