@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f7f4ee">
+<title>设置 · 学习小助手</title>
+<script>
+(function () {
+  var saved = null;
+  try { saved = localStorage.getItem('learn-theme'); } catch (_e) {}
+  var q = new URLSearchParams(location.search).get('theme');
+  var dark = saved ? saved === 'dark' : (q ? q === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+})();
+</script>
+<link rel="stylesheet" href="./style.css">
+<style>
+  .settings-wrap { max-width: 720px; margin: 0 auto; padding: 0 24px 80px; }
+  .settings-card { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 22px 24px; margin-top: 24px; box-shadow: var(--shadow-soft, 0 8px 24px rgba(0,0,0,.05)); }
+  .settings-card h1 { margin: 0 0 6px; font-size: 24px; }
+  .settings-intro { margin: 0 0 20px; color: var(--ink-3); font-size: 13px; line-height: 1.7; }
+  .settings-field { margin: 0 0 14px; }
+  .settings-field label { display: block; font-size: 12px; color: var(--ink-2); margin-bottom: 5px; }
+  .settings-field input, .settings-field select { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); color: var(--ink); padding: 8px 10px; font: inherit; font-size: 13px; }
+  .settings-field input:focus, .settings-field select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .settings-hint { margin-top: 4px; color: var(--ink-3); font-size: 11px; line-height: 1.6; }
+  .settings-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .settings-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+  .settings-status { font-size: 12px; color: var(--ink-3); }
+  .settings-sep { height: 1px; background: var(--line); margin: 18px 0; }
+  .settings-note { color: var(--ink-3); font-size: 11.5px; line-height: 1.8; }
+  @media (max-width: 560px) { .settings-row { grid-template-columns: 1fr; } .settings-card { padding: 18px 16px; } }
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="masthead-in">
+    <a class="brand" href="./" aria-label="回到卡片站">
+      <span class="seal" aria-hidden="true">学</span>
+      <span class="brand-text"><b>学习小助手</b><em>设置</em></span>
+    </a>
+    <nav class="nav" aria-label="导航">
+      <a href="./">卡片站</a>
+      <button class="theme-toggle" id="theme-toggle" type="button" aria-label="切换深色模式">深色</button>
+    </nav>
+  </div>
+</header>
+
+<main class="settings-wrap">
+  <section class="settings-card">
+    <h1>模型与回溯</h1>
+    <p class="settings-intro">这里不依赖 DSH 插件：卡片站单独打开也能配置。留空 API Key 不会覆盖已保存的 key；没有 key 时，历史补课会尝试本地 Ollama，种子卡交给 DSH 内置模型。</p>
+
+    <div class="settings-field">
+      <label for="baseURL">API 地址</label>
+      <input id="baseURL" type="url" placeholder="https://api.deepseek.com" autocomplete="off">
+    </div>
+    <div class="settings-field">
+      <label for="model">模型</label>
+      <input id="model" type="text" placeholder="deepseek-flash" autocomplete="off">
+    </div>
+    <div class="settings-field">
+      <label for="apiKey">API Key</label>
+      <input id="apiKey" type="password" placeholder="留空表示不修改" autocomplete="off">
+      <div class="settings-hint" id="keyHint">不会把明文 key 回传到浏览器。</div>
+    </div>
+
+    <div class="settings-field">
+      <label for="priority">模型优先级</label>
+      <select id="priority">
+        <option value="api,local,dsh">API → 本地模型 → DSH</option>
+        <option value="api,dsh,local">API → DSH → 本地模型</option>
+        <option value="local,api,dsh">本地模型 → API → DSH</option>
+        <option value="local,dsh,api">本地模型 → DSH → API</option>
+        <option value="dsh,api,local">DSH → API → 本地模型</option>
+        <option value="dsh,local,api">DSH → 本地模型 → API</option>
+      </select>
+      <div class="settings-hint">三档各用一次；前面的不可用才往后走。</div>
+    </div>
+
+    <div class="settings-row">
+      <div class="settings-field">
+        <label for="lookbackMode">历史回溯方式</label>
+        <select id="lookbackMode">
+          <option value="turns">按对话轮数</option>
+          <option value="days">按天数</option>
+        </select>
+      </div>
+      <div class="settings-field">
+        <label for="lookbackValue" id="lookbackLabel">每个旧会话最近几轮</label>
+        <input id="lookbackValue" type="number" min="1" max="365" value="8">
+      </div>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn btn-primary" id="save" type="button">保存</button>
+      <button class="btn btn-ghost" id="test" type="button">测试连接</button>
+      <span class="settings-status" id="status"></span>
+    </div>
+
+    <div class="settings-sep"></div>
+    <div class="settings-note" id="localNote">本地模型状态读取中…</div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var state = null;
+  function setStatus(text) { $('status').textContent = text || ''; }
+  function json(url, opts) {
+    return fetch(url, opts).then(function (res) {
+      return res.json().catch(function () { return null; }).then(function (data) {
+        if (!res.ok || !data || !data.ok) throw new Error((data && data.error) || ('HTTP ' + res.status));
+        return data;
+      });
+    });
+  }
+  function apply(data) {
+    state = data;
+    $('baseURL').value = data.baseURL || '';
+    $('model').value = data.model || '';
+    $('apiKey').value = '';
+    $('apiKey').placeholder = data.hasKey ? data.maskedKey : '留空表示不修改';
+    $('keyHint').textContent = data.hasKey ? '已配置：' + data.maskedKey + '；留空不修改。' : '还没有 key；可以填，也可以先只跑本地。';
+    var p = (data.historyPriority || ['api','local','dsh']).join(',');
+    $('priority').value = p;
+    var lb = data.historyLookback || { mode: 'turns', turns: 8, days: 7 };
+    $('lookbackMode').value = lb.mode === 'days' ? 'days' : 'turns';
+    $('lookbackValue').value = lb.mode === 'days' ? (lb.days || 7) : (lb.turns || 8);
+    paintLookback();
+    var local = data.local || {};
+    $('localNote').textContent = '本地模型：' + (local.up ? ('在跑 · ' + (local.model || '?')) : '没起') + ' · API：' + (data.hasKey ? '已配置' : '未配置');
+  }
+  function paintLookback() {
+    var days = $('lookbackMode').value === 'days';
+    $('lookbackLabel').textContent = days ? '最近几天' : '每个旧会话最近几轮';
+    $('lookbackValue').max = days ? '365' : '50';
+  }
+  function collect() {
+    return {
+      baseURL: $('baseURL').value.trim(),
+      model: $('model').value.trim(),
+      historyPriority: $('priority').value.split(','),
+      historyLookback: {
+        mode: $('lookbackMode').value,
+        turns: Number($('lookbackMode').value === 'turns' ? $('lookbackValue').value : 8) || 8,
+        days: Number($('lookbackMode').value === 'days' ? $('lookbackValue').value : 7) || 7
+      }
+    };
+  }
+  $('lookbackMode').addEventListener('change', paintLookback);
+  $('save').addEventListener('click', function () {
+    setStatus('保存中…');
+    var body = collect();
+    var key = $('apiKey').value.trim();
+    if (key) body.apiKey = key;
+    json('/api/settings/llm', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (data) { apply(data); setStatus('已保存'); })
+      .catch(function (e) { setStatus('保存失败：' + e.message); });
+  });
+  $('test').addEventListener('click', function () {
+    setStatus('测试中…');
+    json('/api/settings/llm/test', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      .then(function (data) { setStatus(data.ok ? ('可用 · ' + data.ms + 'ms · ' + data.model) : data.error); })
+      .catch(function (e) { setStatus('测试失败：' + e.message); });
+  });
+  $('theme-toggle').addEventListener('click', function () {
+    var d = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+    document.documentElement.dataset.theme = d;
+    try { localStorage.setItem('learn-theme', d); } catch (_e) {}
+    $('theme-toggle').textContent = d === 'dark' ? '浅色' : '深色';
+  });
+  var d0 = document.documentElement.dataset.theme === 'dark';
+  $('theme-toggle').textContent = d0 ? '浅色' : '深色';
+  json('/api/settings/llm').then(apply).catch(function (e) { setStatus('读取失败：' + e.message); });
+})();
+</script>
+</body>
+</html>

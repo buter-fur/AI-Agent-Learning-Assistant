@@ -23,7 +23,7 @@ export function loadConfig() {
   ).trim();
   return {
     baseURL: (process.env.OPENAI_BASE_URL || cfg.baseURL || "https://api.deepseek.com").replace(/\/+$/, ""),
-    model: process.env.OPENAI_MODEL || cfg.model || "deepseek-chat",
+    model: process.env.OPENAI_MODEL || cfg.model || "deepseek-flash",
     apiKey,
     timeoutMs: Number(process.env.LLM_TIMEOUT_MS || cfg.timeoutMs || 60000),
     retries: Number(cfg.retries ?? 2),

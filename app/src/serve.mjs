@@ -167,6 +167,19 @@ async function main() {
   const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host || "127.0.0.1"}`);
     const p = decodeURIComponent(url.pathname);
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader("access-control-allow-origin", origin);
+      res.setHeader("vary", "Origin");
+      res.setHeader("access-control-allow-methods", "GET,HEAD,POST,OPTIONS");
+      res.setHeader("access-control-allow-headers", "content-type");
+      res.setHeader("access-control-max-age", "600");
+    }
+    if (req.method === "OPTIONS") {
+      res.writeHead(204);
+      res.end();
+      return;
+    }
 
     try {
       if (p === "/api/bundle" && req.method === "GET") {

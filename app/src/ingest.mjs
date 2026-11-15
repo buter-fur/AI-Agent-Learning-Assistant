@@ -27,6 +27,30 @@ function parseArgs(argv) {
 const len = (s) => [...String(s || "")].length;
 const norm = (s) => String(s || "").replace(/\s+/g, "").toLowerCase();
 
+/** 默认 data/out 下按 generate 的批次目录找最新 batch.json。 */
+function latestBatchDir(root) {
+  let best = null;
+  const stack = [{ dir: root, depth: 0 }];
+  while (stack.length) {
+    const { dir, depth } = stack.pop();
+    if (depth > 4) continue;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { continue; }
+    for (const entry of entries) {
+      const abs = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== "node_modules") stack.push({ dir: abs, depth: depth + 1 });
+        continue;
+      }
+      if (!entry.name.endsWith(".json")) continue;
+      let st;
+      try { st = fs.statSync(abs); } catch { continue; }
+      if (!best || st.mtimeMs > best.mtime) best = { dir, mtime: st.mtimeMs };
+    }
+  }
+  return best ? best.dir : null;
+}
+
 function collectText(rows) {
   const out = [];
   const pushBlock = (content) => {
@@ -77,7 +101,14 @@ async function main() {
     console.error(`no such dir: ${opt.inDir}`);
     process.exit(1);
   }
-  const files = fs.readdirSync(opt.inDir).filter((f) => f.endsWith(".json"));
+  let files = fs.readdirSync(opt.inDir).filter((f) => f.endsWith(".json"));
+  if (!files.length) {
+    const latest = latestBatchDir(opt.inDir);
+    if (latest && latest !== opt.inDir) {
+      opt.inDir = latest;
+      files = fs.readdirSync(opt.inDir).filter((f) => f.endsWith(".json"));
+    }
+  }
   if (!files.length) {
     console.error(`no *.json in ${opt.inDir}`);
     process.exit(1);

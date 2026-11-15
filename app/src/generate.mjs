@@ -30,22 +30,47 @@ const num = (name, d) => {
   return v == null ? d : Number(v);
 };
 
+function repairOptions(card) {
+  if (!card || card.shape === "workflow" || !Array.isArray(card.options)) return;
+  if (!card.options.includes("我不知道")) card.options.push("我不知道");
+  if (card.options.length > 3) {
+    const ai = Number(card.answerIndex);
+    const answer = Number.isInteger(ai) && ai >= 0 && ai < card.options.length ? card.options[ai] : card.options[0];
+    const distractor = card.options.find((x, i) => i !== ai && x !== "我不知道") || "其他";
+    card.options = [answer, distractor, "我不知道"];
+    card.answerIndex = 0;
+  }
+}
+
 async function runOne(file, cfg) {
   const packet = fs.readFileSync(path.join(PACKETS, file), "utf8");
-  const res = await chat(
-    [{ role: "system", content: SYSTEM }, { role: "user", content: buildUser(packet) }],
-    cfg
-  );
-  if (!String(res.content).trim()) {
-    throw new Error("模型只输出了思考、没有正文（推理模型把 max_tokens 用完了）——把 config.json 的 maxTokens 调大，或换非推理模型");
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const res = await chat(
+      [{ role: "system", content: SYSTEM }, { role: "user", content: buildUser(packet) }],
+      cfg
+    );
+    if (!String(res.content).trim()) {
+      throw new Error("模型只输出了思考、没有正文（推理模型把 max_tokens 用完了）——把 config.json 的 maxTokens 调大，或换非推理模型");
+    }
+    try {
+      const json = parseJsonLoose(res.content);
+      const cards = (json.cards || []).map((card) => {
+        const copy = { ...card, options: Array.isArray(card.options) ? [...card.options] : card.options };
+        repairOptions(copy);
+        return copy;
+      });
+      return {
+        cards,
+        concepts: json.concepts || [],
+        edges: json.edges || [],
+        usage: res.usage
+      };
+    } catch (error) {
+      lastError = error;
+    }
   }
-  const json = parseJsonLoose(res.content);
-  return {
-    cards: json.cards || [],
-    concepts: json.concepts || [],
-    edges: json.edges || [],
-    usage: res.usage
-  };
+  throw lastError || new Error("模型返回无法解析");
 }
 
 async function main() {

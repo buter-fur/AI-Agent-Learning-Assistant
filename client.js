@@ -288,7 +288,9 @@ window.__ModuleLoader__.load({
 		}
 
 		const HTTP_ORIGIN = httpOrigin();
+		const DIRECT_BASE = "http://127.0.0.1:4780";
 		function proxyURL(path) { return HTTP_ORIGIN + "/learning-assistant" + path; }
+		function directURL(path) { return DIRECT_BASE + path; }
 
 		/** DSH 现在是深色还是浅色；卡片站首次打开时按它选主题。 */
 		function isDarkTheme() {
@@ -301,21 +303,31 @@ window.__ModuleLoader__.load({
 			return false;
 		}
 
-		/** 同源代理取 JSON。 */
-		async function getJSON(path) {
-			const response = await fetch(proxyURL(path), { cache: "no-store" });
-			if (!response.ok) throw new Error("HTTP " + response.status);
-			return response.json();
+		/** 同源代理优先；老版本 DSH 没有 webServer 服务时，回退到 4780 直连。 */
+		async function requestJSON(path, options) {
+			const targets = [proxyURL(path)];
+			if (DIRECT_BASE && directURL(path) !== targets[0]) targets.push(directURL(path));
+			let last = null;
+			for (const url of targets) {
+				try {
+					const response = await fetch(url, { cache: "no-store", ...options });
+					if (!response.ok) { last = new Error("HTTP " + response.status); continue; }
+					return response.json();
+				} catch (error) {
+					last = error;
+				}
+			}
+			throw last || new Error("offline");
 		}
 
-		async function postJSON(path, body) {
-			const response = await fetch(proxyURL(path), {
+		function getJSON(path) { return requestJSON(path, {}); }
+
+		function postJSON(path, body) {
+			return requestJSON(path, {
 				method: "POST",
 				headers: { "content-type": "application/json" },
 				body: JSON.stringify(body || {})
 			});
-			if (!response.ok) throw new Error("HTTP " + response.status);
-			return response.json();
 		}
 
 		const inject = ["slots", "locale"];

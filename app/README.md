@@ -17,6 +17,8 @@ node src/serve.mjs --open
 
 默认地址 `http://127.0.0.1:4780`。没有卡片数据时会加载 `public/mock.json` 的合成示例；服务首次启动会在 `data/cards.db` 自动建空库。
 
+**设置页**：`http://127.0.0.1:4780/settings.html`，不依赖 DSH 插件也能填 API、模型、优先级和回溯范围。
+
 ## 数据与隐私
 
 仓库**不包含**个人会话日志、卡片数据库、知识库正文、API Key。运行时生成的文件都在 `data/`，已被 `.gitignore` 排除。

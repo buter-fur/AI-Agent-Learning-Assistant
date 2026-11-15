@@ -1,6 +1,6 @@
 {
   "name": "learn-cards",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "private": true,
   "type": "module",
   "description": "学习小助手卡片站：会话旁听、历史补卡、种子卡、知识库检索",

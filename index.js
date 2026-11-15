@@ -266,7 +266,7 @@ function proxyHandler(getBase, getLlm) {
 const name = "learning-assistant";
 
 /** 需要 Web 路由注册表。 */
-const inject = ["webServer"];
+const inject = [];
 
 /**
  * @param ctx Cordis 上下文。
@@ -510,9 +510,29 @@ function apply(ctx, config) {
 		if (session && session.id) sessions.delete(session.id);
 	});
 
-	const dispose = ctx.webServer.register({ kind: "prefix", path: PREFIX, handler: proxyHandler(() => base, () => {
+	const proxy = proxyHandler(() => base, () => {
 		try { return ctx.get("llm"); } catch { return undefined; }
-	}) });
+	});
+	let dispose = () => {};
+	let proxyAttached = false;
+	const webServer = typeof ctx.get === "function" ? (() => {
+		try { return ctx.get("webServer"); } catch { return undefined; }
+	})() : undefined;
+	if (webServer && typeof webServer.register === "function") {
+		dispose = webServer.register({ kind: "prefix", path: PREFIX, handler: proxy });
+		proxyAttached = true;
+	} else if (typeof ctx.inject === "function") {
+		try {
+			ctx.inject(["webServer"], (child) => {
+				if (disposed || proxyAttached) return;
+				const ws = typeof child.get === "function" ? child.get("webServer") : undefined;
+				if (!ws || typeof ws.register !== "function") return;
+				dispose = ws.register({ kind: "prefix", path: PREFIX, handler: proxy });
+				proxyAttached = true;
+			});
+		} catch {}
+	}
+	if (!proxyAttached) log.info?.("learning-assistant: webServer 服务不可用，插件继续启动；卡片站走直连回退");
 	ctx.effect(() => () => {
 		disposed = true;
 		dispose();
