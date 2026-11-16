@@ -219,7 +219,7 @@ window.__ModuleLoader__.load({
 .dshla-flash{color:var(--dsw-alias-label-secondary,#555);font-size:11.5px;margin-left:auto}
 .dshla-src{word-break:break-all;font-size:10.5px;color:var(--dsw-alias-label-tertiary,#8a8f98);margin-top:6px}
 .dshla-station{position:fixed;inset:0;z-index:2147483647;background:rgba(15,18,24,.45);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:2vh 2vw;pointer-events:auto}
-.dshla-station-box{width:min(1240px,96vw);height:min(880px,94vh);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--dsw-alias-border-l1,#e3e3e3);border-radius:16px;background:var(--dsw-alias-bg-layer-1,#fff);box-shadow:0 28px 80px rgba(0,0,0,.36)}
+.dshla-station-box{position:relative;width:min(1240px,96vw);height:min(880px,94vh);display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--dsw-alias-border-l1,#e3e3e3);border-radius:16px;background:var(--dsw-alias-bg-layer-1,#fff);box-shadow:0 28px 80px rgba(0,0,0,.36)}
 .dshla-station-bar{position:relative;z-index:2;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 13px;border-bottom:1px solid var(--dsw-alias-border-l1,#eee);background:var(--dsw-alias-bg-layer-1,#fff);flex:0 0 auto}
 .dshla-station-close{display:inline-flex;align-items:center;gap:4px;width:auto;padding:4px 9px;border:1px solid var(--dsw-alias-border-l1,#e3e3e3);background:transparent;color:var(--dsw-alias-label-secondary,#555);font-size:12px;line-height:1.5;border-radius:7px;cursor:pointer;font-family:inherit}
 .dshla-station-close:hover{background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.06));color:var(--dsw-alias-label-primary,#1f2328)}
@@ -229,6 +229,7 @@ window.__ModuleLoader__.load({
 .dshla-station-boot{font-size:11px;color:var(--dsw-alias-label-tertiary,#8a8f98)}
 .dshla-frame{display:block;flex:1;width:100%;border:0;background:#f7f4ee}
 .dshla-station-load{flex:1;display:flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-tertiary,#8a8f98);font-size:13px;background:#f7f4ee}
+.dshla-station-load.is-overlay{position:absolute;inset:41px 0 0;z-index:2;background:rgba(247,244,238,.88);backdrop-filter:blur(3px)}
 .dshla-history{margin-top:12px;padding-top:9px;border-top:1px solid var(--dsw-alias-border-l1,#eee)}
 .dshla-history-head{display:flex;align-items:center;gap:7px;width:100%;padding:2px 0;border:0;background:transparent;cursor:pointer;font:inherit;color:var(--dsw-alias-label-primary,#1f2328);text-align:left}
 .dshla-history-title{font-size:12.5px;font-weight:600}
@@ -523,6 +524,7 @@ window.__ModuleLoader__.load({
 				const [historyDetail, setHistoryDetail] = useState(null);
 				const timer = useRef(null);
 				const alive = useRef(true);
+				const failures = useRef(0);
 				const historyBodyRef = useRef(null);
 
 				const refreshHistory = useCallback(async () => {
@@ -542,11 +544,15 @@ window.__ModuleLoader__.load({
 							getJSON("/api/whisper/queue")
 						]);
 						if (!alive.current) return;
+						failures.current = 0;
 						setOnline(true);
 						setItem(pending.item || null);
 						setQueue(((waiting.items || []).length));
 					} catch (_error) {
-						if (alive.current) setOnline(false);
+						// 单次抖动不要把 iframe 卸掉；连续失败两次才标离线。
+						if (!alive.current) return;
+						failures.current += 1;
+						if (failures.current >= 2) setOnline(false);
 					}
 				}, []);
 
@@ -876,9 +882,8 @@ window.__ModuleLoader__.load({
 									])
 								])
 							]),
-							online
-								? h("iframe", { className: "dshla-frame", src: proxyURL("/") + "?theme=" + (isDarkTheme() ? "dark" : "light"), title: t("station"), key: "f" })
-								: h("div", { className: "dshla-station-load", key: "l" }, t("stationBoot"))
+							h("iframe", { className: "dshla-frame", src: proxyURL("/") + "?theme=" + (isDarkTheme() ? "dark" : "light"), title: t("station"), key: "f" }),
+							online ? null : h("div", { className: "dshla-station-load is-overlay", key: "l" }, t("stationBoot"))
 						])
 					]) : null
 				]);

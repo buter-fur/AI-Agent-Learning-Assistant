@@ -220,6 +220,18 @@
     quiz: null
   };
 
+  /* 打开过的卡面在 iframe 被父页重载/刷新后仍保持展开 */
+  var REVEAL_KEY = 'learn-revealed-v1';
+  try {
+    var savedRevealed = JSON.parse(window.sessionStorage.getItem(REVEAL_KEY) || '[]');
+    if (Array.isArray(savedRevealed)) savedRevealed.forEach(function (id) { state.revealed[id] = true; });
+  } catch (_e) {}
+  function persistRevealed() {
+    try {
+      window.sessionStorage.setItem(REVEAL_KEY, JSON.stringify(Object.keys(state.revealed).filter(function (id) { return state.revealed[id]; })));
+    } catch (_e) {}
+  }
+
   var resizeTimer = null;
 
   /* ── 小工具 ───────────────────────────────────────────── */
@@ -1289,6 +1301,7 @@
 
     function setRevealed(open) {
       state.revealed[card.id] = open;
+      persistRevealed();
       back.hidden = !open;
       revealBtn.textContent = open ? '收起来' : (revealMode ? '想好了，看答案' : '我猜完了，看答案');
       revealBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
