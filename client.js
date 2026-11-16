@@ -525,6 +525,7 @@ window.__ModuleLoader__.load({
 				const timer = useRef(null);
 				const alive = useRef(true);
 				const failures = useRef(0);
+				const stationLoaded = useRef(false);
 				const historyBodyRef = useRef(null);
 
 				const refreshHistory = useCallback(async () => {
@@ -545,6 +546,7 @@ window.__ModuleLoader__.load({
 						]);
 						if (!alive.current) return;
 						failures.current = 0;
+						stationLoaded.current = true;
 						setOnline(true);
 						setItem(pending.item || null);
 						setQueue(((waiting.items || []).length));
@@ -882,7 +884,7 @@ window.__ModuleLoader__.load({
 									])
 								])
 							]),
-							h("iframe", { className: "dshla-frame", src: proxyURL("/") + "?theme=" + (isDarkTheme() ? "dark" : "light"), title: t("station"), key: "f" }),
+							(stationLoaded.current || online) ? h("iframe", { className: "dshla-frame", src: proxyURL("/") + "?theme=" + (isDarkTheme() ? "dark" : "light"), title: t("station"), key: "f" }) : null,
 							online ? null : h("div", { className: "dshla-station-load is-overlay", key: "l" }, t("stationBoot"))
 						])
 					]) : null
