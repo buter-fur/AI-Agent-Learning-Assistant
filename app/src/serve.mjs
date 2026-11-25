@@ -256,7 +256,7 @@ async function main() {
             ok: true, dry: true, tier: d.tier,
             card: d.card ? { id: d.card.id, title: d.card.title } : null,
             kb: d.kb ? { id: d.kb.id, title: d.kb.title, score: d.kb.score } : null,
-            reason: d.reason, score: d.final || d.sim || 0
+            reason: d.reason, why: d.why, score: d.final || d.sim || 0
           }));
         }
         if (d.seed && d.seedText) {
