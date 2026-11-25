@@ -144,7 +144,7 @@ export async function decide(db, signal) {
     if (!wf) return { tier: "none", reason: "收口信号，但没有匹配到工作流卡" };
     return { tier: "pop", card: wf.card, concept: null, sim: wf.sim, final: 0.8,
       reason: `工作流 · 匹配 ${wf.sim.toFixed(2)}`,
-      why: `这是阶段收口信号；工作流卡「${wf.card.title}」的场景/步骤和它最接近（匹配度 ${wf.sim.toFixed(2)}），所以现在给你看它。` };
+      why: `这是阶段收口信号；工作流卡「${wf.card.title}」和它最接近。` };
   }
   const hit = matchCard(db, signal);
   // 主动扫描：卡片没命中时只查一次知识库做 novelty 判断；命不中就排队做种子卡。
@@ -159,7 +159,7 @@ export async function decide(db, signal) {
       tier: "none", sim: hit ? hit.sim : 0,
       seed: true, seedText: signal.text,
       reason: "主动扫描：发现新知识点，排队做种子卡",
-      why: `现场里出现了新知识点；现有卡片最高只到 ${hit ? hit.sim.toFixed(2) : "0.00"}${top ? `，知识库最高 ${Number(top.score).toFixed(2)}` : "，知识库也没有足够相近的条目"}，所以先做一张种子卡。`
+      why: "现有卡片和知识库都没覆盖这个新知识点，先做一张种子卡。"
     };
   }
   if (!hit || hit.sim < 0.12) {
@@ -173,7 +173,7 @@ export async function decide(db, signal) {
       return {
         tier: "pop", kb: top, sim: hit ? hit.sim : 0, final: top.score,
         reason: `知识库 · ${top.title} · ${top.score.toFixed(2)}`,
-        why: `知识库里「${top.title}」和现场最接近（相似度 ${top.score.toFixed(2)}，达到弹出阈值 ${th.pop.toFixed(2)}）；它不是已有卡片，先给你看这条。`
+        why: `知识库里「${top.title}」和现场最接近。`
       };
     }
     if (top && top.score >= th.gate) {
@@ -182,7 +182,7 @@ export async function decide(db, signal) {
         return {
           tier: "badge", kb: top, sim: hit ? hit.sim : 0, final: top.score,
           reason: `灰区 ${top.score.toFixed(2)} · 本地模型判相关（${j.reason || "能回答"}）`,
-          why: `知识库相似度 ${top.score.toFixed(2)} 落在灰区；模型判断「${top.title}」能回答现场（${j.reason || "能回答"}），所以先出角标，不打断你。`
+          why: `知识库里「${top.title}」和现场有关；先出角标。`
         };
       }
       return {
@@ -216,9 +216,9 @@ export async function decide(db, signal) {
   // 弱匹配只允许角标，不允许直接弹（防误报打扰）
   if (hit.sim < 0.12 && tier === "pop") tier = "badge";
   const matchedText = hit.matched && hit.matched.length
-    ? `共同关键词：${hit.matched.join("、")}。`
-    : "没有共享关键词，是整体语义最接近。";
-  const why = `你在现场提到的内容和卡片「${card.title}」最接近；${matchedText}匹配度 ${hit.sim.toFixed(2)}（词面重合）。综合价值 ${final.toFixed(2)} = 内容 ${content.toFixed(2)} × 时机 ${timing.toFixed(2)}，${tier === "pop" ? `达到弹出阈值 ${THRESHOLDS.pop.toFixed(2)}` : `只达到角标阈值 ${THRESHOLDS.badge.toFixed(2)}，先放在角标里`}。`;
+    ? `；共同关键词：${hit.matched.join("、")}`
+    : "";
+  const why = `你在现场提到的内容和卡片「${card.title}」最接近${matchedText}。`;
   return {
     tier: tier === "pool" ? "none" : tier,
     card, concept, stage, sim: hit.sim, content, timing, final, matched: hit.matched || [], why,

@@ -140,7 +140,7 @@ export function seedItem(seed, extra = {}) {
     tier: "pop",
     score: 0.5,
     reason: "主动发现新知识点",
-    why: "现场出现了现有卡片和知识库都没覆盖的新知识点；先给你一张种子卡，点「展开细讲」才生成完整卡。",
+    why: "现有卡片和知识库都没覆盖这个新知识点，先给你一张种子卡。",
     card: {
       id: seed.id,
       shape: "seed",
