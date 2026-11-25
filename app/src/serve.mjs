@@ -275,7 +275,7 @@ async function main() {
         if (d.kb) {
           item = {
             id: Math.random().toString(36).slice(2, 9), tier: d.tier, score: d.final,
-            reason: d.reason,
+            reason: d.reason, why: d.why || d.reason,
             card: { id: d.kb.id, shape: "kb", title: d.kb.title, summary: d.kb.summary,
                     scene: d.kb.preview, source: d.kb.meta && d.kb.meta.source, kbId: d.kb.id },
             concept: null, ts: Date.now()
@@ -284,7 +284,7 @@ async function main() {
           if (d.card.conceptId) logExposure(d.card.conceptId);
           const row = db.prepare("SELECT * FROM card WHERE id=?").get(d.card.id);
           item = {
-            id: Math.random().toString(36).slice(2, 9), tier: d.tier, score: d.final, reason: d.reason,
+            id: Math.random().toString(36).slice(2, 9), tier: d.tier, score: d.final, reason: d.reason, why: d.why || d.reason,
             card: slimCard(db, rowToCard(row)),
             concept: d.concept ? { name: d.concept.name, desc: d.concept.desc } : null,
             ts: Date.now()

@@ -42,6 +42,7 @@ window.__ModuleLoader__.load({
 			"source": "来源",
 			"rungG": "G{rung}",
 			"score": "匹配 {score}",
+			"why": "为什么弹出",
 			"one": "第 1 张",
 			"historyTitle": "历史卡片",
 			"historyEmpty": "还没有历史卡片。启用插件前的旧会话可以在这里补成卡片。",
@@ -125,6 +126,7 @@ window.__ModuleLoader__.load({
 			"source": "Source",
 			"rungG": "G{rung}",
 			"score": "match {score}",
+			"why": "Why this card",
 			"one": "1 card",
 			"historyTitle": "History cards",
 			"historyEmpty": "No history cards yet. Older conversations can be turned into cards here.",
@@ -205,6 +207,8 @@ window.__ModuleLoader__.load({
 .dshla-chip{font-size:10.5px;color:var(--dsw-alias-label-secondary,#555);background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.05));border-radius:999px;padding:1px 7px;line-height:1.8}
 .dshla-title{font-size:15px;font-weight:600;margin:0 0 4px;color:var(--dsw-alias-label-primary,#1f2328);line-height:1.5}
 .dshla-text{margin:0 0 8px;color:var(--dsw-alias-label-secondary,#555);font-size:12.5px;line-height:1.75;white-space:pre-wrap;word-break:break-word}
+.dshla-why{margin:0 0 9px;padding:7px 9px;border-left:2px solid var(--dsw-alias-brand-primary,#6b5b8a);background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.04));border-radius:0 6px 6px 0;color:var(--dsw-alias-label-secondary,#555);font-size:11.5px;line-height:1.65}
+.dshla-why b{color:var(--dsw-alias-label-primary,#1f2328);font-weight:600}
 .dshla-quote{margin:8px 0;padding:8px 10px;border-left:2px solid var(--dsw-alias-border-l2,#ddd);color:var(--dsw-alias-label-secondary,#555);font-size:12px;line-height:1.7;background:var(--dsw-alias-interactive-bg-hover,rgba(0,0,0,.03));border-radius:0 6px 6px 0;white-space:pre-wrap}
 .dshla-actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
 .dshla-btn{border:1px solid var(--dsw-alias-border-l1,#e3e3e3);background:var(--dsw-alias-bg-layer-1,#fff);color:var(--dsw-alias-label-primary,#1f2328);border-radius:8px;padding:5px 10px;font-size:12px;line-height:1.6;cursor:pointer;font-family:inherit}
@@ -739,6 +743,7 @@ window.__ModuleLoader__.load({
 							h("span", { className: "dshla-chip", key: "s" }, t("seedChip")),
 							lane ? h("span", { className: "dshla-chip", key: "l" }, lane) : null
 						]),
+						item.why ? h("div", { className: "dshla-why", key: "why" }, [h("b", { key: "b" }, t("why") + "："), item.why]) : null,
 						card.scene ? h("p", { className: "dshla-text", key: "sc" }, card.scene) : null,
 						card.takeaway ? h("div", { className: "dshla-quote", key: "tk" }, card.takeaway) : null,
 						h("div", { className: "dshla-actions", key: "ac" }, [
@@ -756,6 +761,7 @@ window.__ModuleLoader__.load({
 							!isKb && typeof card.rung === "number" ? h("span", { className: "dshla-chip", key: "r" }, t("rungG", { rung: rung }) + " · " + (RUNG[rung] || "") ) : null,
 							item.reason ? h("span", { className: "dshla-chip", key: "s" }, t("score", { score: Number(item.score || 0).toFixed(2) })) : null
 						]),
+						item.why ? h("div", { className: "dshla-why", key: "why" }, [h("b", { key: "b" }, t("why") + "："), item.why]) : null,
 						card.scene ? h("p", { className: "dshla-text", key: "sc" }, card.scene) : null,
 						card.summary ? h("p", { className: "dshla-text", key: "su" }, card.summary) : null,
 						card.takeaway ? h("div", { className: "dshla-quote", key: "tk" }, card.takeaway) : null,
